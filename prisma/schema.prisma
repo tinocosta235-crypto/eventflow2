@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Event {
+  id           String    @id @default(cuid())
+  slug         String    @unique
+  title        String
+  description  String?
+  coverImage   String?
+  status       String    @default("DRAFT")
+  startDate    DateTime?
+  endDate      DateTime?
+  location     String?
+  online       Boolean   @default(false)
+  onlineUrl    String?
+  capacity     Int?
+  currentCount Int       @default(0)
+  tags         String?
+  visibility   String    @default("PUBLIC")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  registrations  Registration[]
+  formFields     FormField[]
+  emailTemplates EmailTemplate[]
+  checkIns       CheckIn[]
+}
+
+model Registration {
+  id               String    @id @default(cuid())
+  eventId          String
+  registrationCode String    @unique
+  status           String    @default("PENDING")
+  firstName        String
+  lastName         String
+  email            String
+  phone            String?
+  company          String?
+  jobTitle         String?
+  notes            String?
+  source           String    @default("web")
+  paymentStatus    String    @default("FREE")
+  ticketPrice      Float?
+  checkedInAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  event   Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fields  RegistrationField[]
+  checkIn CheckIn?
+
+  @@unique([eventId, email])
+}
+
+model FormField {
+  id          String   @id @default(cuid())
+  eventId     String
+  label       String
+  type        String
+  placeholder String?
+  required    Boolean  @default(false)
+  options     String?
+  conditions  String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  event              Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrationFields RegistrationField[]
+}
+
+model RegistrationField {
+  id             String  @id @default(cuid())
+  registrationId String
+  fieldId        String
+  value          String?
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  field        FormField    @relation(fields: [fieldId], references: [id])
+
+  @@unique([registrationId, fieldId])
+}
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  eventId   String?
+  name      String
+  subject   String
+  body      String
+  type      String   @default("CUSTOM")
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+}
+
+model CheckIn {
+  id             String   @id @default(cuid())
+  eventId        String
+  registrationId String   @unique
+  checkedInAt    DateTime @default(now())
+  method         String   @default("manual")
+
+  event        Event        @relation(fields: [eventId], references: [id])
+  registration Registration @relation(fields: [registrationId], references: [id])
+}
