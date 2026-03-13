@@ -29,6 +29,7 @@ model Event {
   formFields     FormField[]
   emailTemplates EmailTemplate[]
   checkIns       CheckIn[]
+  invitees       Invitee[]
 }
 
 model Registration {
@@ -109,3 +110,113 @@ model CheckIn {
   event        Event        @relation(fields: [eventId], references: [id])
   registration Registration @relation(fields: [registrationId], references: [id])
 }
+
+// ─── LISTA INVITATI PRE-EVENTO ───────────────────────────────────────────────
+
+model Invitee {
+  id          String    @id @default(cuid())
+  eventId     String
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  company     String?
+  jobTitle    String?
+
+  // Stato risposta
+  status          String  @default("PENDING")   // PENDING | CONFIRMED | DECLINED | NO_RESPONSE
+  declineReason   String?
+  dietary         String?   // esigenze alimentari
+  accessibility   String?   // esigenze accessibilità
+  companions      Int       @default(0)
+
+  // Tracking invii
+  invitesSent     Int       @default(0)
+  lastInviteSentAt DateTime?
+  emailOpenedAt   DateTime?
+  emailClickedAt  DateTime?
+  inviteToken     String    @unique @default(cuid())
+
+  // Conversione a iscrizione
+  convertedToRegistration Boolean @default(false)
+  registrationId          String?
+
+  // Fonte
+  source  String  @default("MANUAL")  // MANUAL | EXCEL | FORM | CRM
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event       Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  travelPlan  TravelPlan?
+  customFields InviteeCustomField[]
+  inviteLogs  InviteLog[]
+
+  @@unique([eventId, email])
+}
+
+model TravelPlan {
+  id        String @id @default(cuid())
+  inviteeId String @unique
+
+  // Trasporto andata
+  transportType        String?  // TRAIN | FLIGHT | CAR | BUS | OTHER
+  transportNumber      String?
+  departureLocation    String?
+  arrivalLocation      String?
+  departureTime        DateTime?
+  arrivalTime          DateTime?
+
+  // Trasporto ritorno
+  returnTransportType     String?
+  returnTransportNumber   String?
+  returnDepartureLocation String?
+  returnArrivalLocation   String?
+  returnDepartureTime     DateTime?
+  returnArrivalTime       DateTime?
+
+  // Hotel
+  hotelName    String?
+  hotelAddress String?
+  checkIn      DateTime?
+  checkOut     DateTime?
+  roomNumber   String?
+  bookingRef   String?
+
+  // Trasferimento sede
+  transferType  String?  // SHUTTLE | TAXI | OWN_CAR | OTHER
+  transferNotes String?
+
+  // Rimborso spese
+  reimbursementAmount  Float?
+  reimbursementStatus  String?  // NONE | REQUESTED | APPROVED | PAID
+  reimbursementNotes   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invitee Invitee @relation(fields: [inviteeId], references: [id], onDelete: Cascade)
+}
+
+model InviteeCustomField {
+  id        String @id @default(cuid())
+  inviteeId String
+  fieldName String
+  fieldType String  @default("text")  // text | number | date | url | select | boolean
+  value     String?
+
+  invitee Invitee @relation(fields: [inviteeId], references: [id], onDelete: Cascade)
+}
+
+model InviteLog {
+  id           String   @id @default(cuid())
+  inviteeId    String
+  sentAt       DateTime @default(now())
+  emailSubject String?
+  method       String   @default("email")  // email | manual
+  notes        String?
+
+  invitee Invitee @relation(fields: [inviteeId], references: [id], onDelete: Cascade)
+}
+
+// ─── RELAZIONE EVENT ─────────────────────────────────────────────────────────
