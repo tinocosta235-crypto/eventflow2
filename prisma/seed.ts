@@ -1,9 +1,11 @@
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
-import path from "path";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
+import bcrypt from "bcryptjs";
 
-const dbPath = path.resolve(process.cwd(), "dev.db");
-const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 function code() {
@@ -11,14 +13,34 @@ function code() {
 }
 
 async function main() {
-  // Events
+  const hashedPassword = await bcrypt.hash("demo1234", 12);
+
+  const org = await prisma.organization.upsert({
+    where: { slug: "phorma-demo" },
+    update: {},
+    create: { name: "Phorma Demo", slug: "phorma-demo", plan: "FREE" },
+  });
+
+  const user = await prisma.user.upsert({
+    where: { email: "demo@phorma.it" },
+    update: {},
+    create: { name: "Admin Demo", email: "demo@phorma.it", password: hashedPassword },
+  });
+
+  await prisma.userOrganization.upsert({
+    where: { userId_organizationId: { userId: user.id, organizationId: org.id } },
+    update: {},
+    create: { userId: user.id, organizationId: org.id, role: "OWNER" },
+  });
+
   const e1 = await prisma.event.upsert({
     where: { slug: "forum-innovazione-2025" },
     update: {},
     create: {
+      organizationId: org.id,
       slug: "forum-innovazione-2025",
       title: "Forum Nazionale Innovazione 2025",
-      description: "Il principale appuntamento annuale sull'innovazione tecnologica in Italia. Due giorni di keynote, workshop e networking con i leader del settore.",
+      description: "Il principale appuntamento annuale sull'innovazione tecnologica in Italia.",
       location: "Milano, MiCo Convention Center",
       startDate: new Date("2025-05-15T09:00:00"),
       endDate: new Date("2025-05-16T18:00:00"),
@@ -33,9 +55,10 @@ async function main() {
     where: { slug: "summit-hr-2025" },
     update: {},
     create: {
+      organizationId: org.id,
       slug: "summit-hr-2025",
       title: "HR Summit Italia 2025",
-      description: "Il futuro del lavoro e delle risorse umane nel nuovo paradigma digitale. Workshop, case study e networking.",
+      description: "Il futuro del lavoro e delle risorse umane nel nuovo paradigma digitale.",
       location: "Roma, Palazzo dei Congressi",
       startDate: new Date("2025-06-12T09:00:00"),
       endDate: new Date("2025-06-13T17:00:00"),
@@ -46,10 +69,11 @@ async function main() {
     },
   });
 
-  const e3 = await prisma.event.upsert({
+  await prisma.event.upsert({
     where: { slug: "conferenza-sostenibilita-2025" },
     update: {},
     create: {
+      organizationId: org.id,
       slug: "conferenza-sostenibilita-2025",
       title: "Conferenza Sostenibilità Aziendale",
       description: "ESG, circular economy e strategie green per le imprese italiane.",
@@ -63,7 +87,6 @@ async function main() {
     },
   });
 
-  // Registrations for event 1
   const participants = [
     { firstName: "Marco", lastName: "Rossi", email: "marco.rossi@techaziende.it", company: "TechAziende Srl", jobTitle: "CEO", status: "CONFIRMED", paymentStatus: "PAID", ticketPrice: 200 },
     { firstName: "Laura", lastName: "Bianchi", email: "l.bianchi@startup.it", company: "Startup XYZ", jobTitle: "CTO", status: "CONFIRMED", paymentStatus: "PAID", ticketPrice: 200 },
@@ -78,34 +101,24 @@ async function main() {
   for (const p of participants) {
     try {
       await prisma.registration.create({
-        data: {
-          eventId: e1.id,
-          registrationCode: code(),
-          source: "web",
-          ...p,
-        },
+        data: { eventId: e1.id, registrationCode: code(), source: "web", ...p },
       });
     } catch { /* skip duplicates */ }
   }
 
-  // 3 registrations for event 2
   for (const p of participants.slice(0, 3)) {
     try {
       await prisma.registration.create({
-        data: {
-          eventId: e2.id,
-          registrationCode: code(),
-          source: "web",
-          ...p,
-          email: p.email.replace("@", "+hr@"),
-        },
+        data: { eventId: e2.id, registrationCode: code(), source: "web", ...p, email: p.email.replace("@", "+hr@") },
       });
     } catch { /* skip */ }
   }
 
   console.log("✅ Seed completato!");
-  console.log(`  📅 ${3} eventi creati`);
-  console.log(`  👤 ${participants.length + 3} registrazioni create`);
+  console.log(`  🏢 Organizzazione: ${org.name}`);
+  console.log(`  👤 Utente demo: demo@phorma.it / demo1234`);
+  console.log(`  📅 3 eventi creati`);
+  console.log(`  👥 ${participants.length + 3} registrazioni create`);
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

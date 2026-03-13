@@ -3,28 +3,136 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  website   String?
+  plan      String   @default("FREE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users   UserOrganization[]
+  events  Event[]
+  invites OrgInvite[]
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  organizations UserOrganization[]
+}
+
+model UserOrganization {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String   @default("MEMBER")
+  createdAt      DateTime @default(now())
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  @@unique([userId, organizationId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
 }
 
 model Event {
-  id           String    @id @default(cuid())
-  slug         String    @unique
-  title        String
-  description  String?
-  coverImage   String?
-  status       String    @default("DRAFT")
-  startDate    DateTime?
-  endDate      DateTime?
-  location     String?
-  online       Boolean   @default(false)
-  onlineUrl    String?
-  capacity     Int?
-  currentCount Int       @default(0)
-  tags         String?
-  visibility   String    @default("PUBLIC")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  organizationId String
+  slug           String    @unique
+  title          String
+  description    String?
+  coverImage     String?
+  status         String    @default("DRAFT")
+  eventType      String    @default("CONFERENCE")
 
+  startDate      DateTime?
+  endDate        DateTime?
+  timezone       String?   @default("Europe/Rome")
+
+  location       String?
+  city           String?
+  country        String?   @default("IT")
+  online         Boolean   @default(false)
+  onlineUrl      String?
+
+  capacity       Int?
+  currentCount   Int       @default(0)
+  tags           String?
+  visibility     String    @default("PUBLIC")
+  website        String?
+
+  venueSetup     String?
+  venueNotes     String?
+
+  accommodationNeeded Boolean   @default(false)
+  hotelName           String?
+  hotelAddress        String?
+  hotelCheckIn        DateTime?
+  hotelCheckOut       DateTime?
+  roomBlockSize       Int?
+  roomBlockDeadline   DateTime?
+  accommodationNotes  String?
+
+  travelNeeded     Boolean @default(false)
+  airportTransfer  Boolean @default(false)
+  shuttleService   Boolean @default(false)
+  parkingAvailable Boolean @default(false)
+  travelNotes      String?
+
+  organizerName    String?
+  organizerEmail   String?
+  organizerPhone   String?
+  secretariatNotes String?
+
+  budgetEstimated Float?
+  budgetActual    Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations  Registration[]
   formFields     FormField[]
   emailTemplates EmailTemplate[]
@@ -49,11 +157,9 @@ model Registration {
   checkedInAt      DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-
   event   Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
   fields  RegistrationField[]
   checkIn CheckIn?
-
   @@unique([eventId, email])
 }
 
@@ -68,7 +174,6 @@ model FormField {
   conditions  String?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
-
   event              Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
   registrationFields RegistrationField[]
 }
@@ -78,10 +183,8 @@ model RegistrationField {
   registrationId String
   fieldId        String
   value          String?
-
   registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   field        FormField    @relation(fields: [fieldId], references: [id])
-
   @@unique([registrationId, fieldId])
 }
 
@@ -95,7 +198,6 @@ model EmailTemplate {
   isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   event Event? @relation(fields: [eventId], references: [id], onDelete: SetNull)
 }
 
@@ -105,7 +207,19 @@ model CheckIn {
   registrationId String   @unique
   checkedInAt    DateTime @default(now())
   method         String   @default("manual")
-
   event        Event        @relation(fields: [eventId], references: [id])
   registration Registration @relation(fields: [registrationId], references: [id])
+}
+
+model OrgInvite {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  role           String   @default("MEMBER")
+  token          String   @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  @@unique([organizationId, email])
 }

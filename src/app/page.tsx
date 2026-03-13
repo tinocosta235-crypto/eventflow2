@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import {
   Calendar, Users, TrendingUp, Euro, ArrowUpRight,
   ArrowRight, Plus, Zap, CheckCircle2, Clock,
@@ -14,16 +15,22 @@ import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from "@/li
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const session = await auth();
+  const orgId = session?.user?.organizationId ?? "";
+
   const [totalEvents, totalRegistrations, upcomingEvents, recentRegistrations] = await Promise.all([
-    prisma.event.count(),
-    prisma.registration.count({ where: { status: "CONFIRMED" } }),
+    prisma.event.count({ where: { organizationId: orgId } }),
+    prisma.registration.count({
+      where: { status: "CONFIRMED", event: { organizationId: orgId } },
+    }),
     prisma.event.findMany({
-      where: { status: "PUBLISHED", startDate: { gte: new Date() } },
+      where: { organizationId: orgId, status: "PUBLISHED", startDate: { gte: new Date() } },
       orderBy: { startDate: "asc" },
       take: 5,
       include: { _count: { select: { registrations: true } } },
     }),
     prisma.registration.findMany({
+      where: { event: { organizationId: orgId } },
       orderBy: { createdAt: "desc" },
       take: 8,
       include: { event: { select: { title: true } } },
@@ -32,7 +39,7 @@ export default async function DashboardPage() {
 
   const revenue = await prisma.registration.aggregate({
     _sum: { ticketPrice: true },
-    where: { paymentStatus: "PAID" },
+    where: { paymentStatus: "PAID", event: { organizationId: orgId } },
   });
 
   const stats = [
@@ -46,7 +53,7 @@ export default async function DashboardPage() {
     <DashboardLayout>
       <Header
         title="Dashboard"
-        subtitle={`Benvenuto! Oggi è ${new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}`}
+        subtitle={`Benvenuto, ${session?.user?.name?.split(" ")[0] ?? ""}! Oggi è ${new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}`}
         actions={
           <Link href="/events/new">
             <Button size="sm" className="gap-2">
@@ -58,7 +65,6 @@ export default async function DashboardPage() {
       />
 
       <div className="p-6 space-y-6">
-        {/* Stats */}
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
           {stats.map((s) => (
             <Card key={s.label}>
@@ -78,7 +84,6 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-          {/* Upcoming Events */}
           <Card className="xl:col-span-3">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base">Prossimi Eventi</CardTitle>
@@ -130,7 +135,6 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Recent Registrations */}
           <Card className="xl:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base">Iscrizioni Recenti</CardTitle>
@@ -165,7 +169,6 @@ export default async function DashboardPage() {
           </Card>
         </div>
 
-        {/* Phorma CTA */}
         <Card className="border-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white overflow-hidden relative">
           <div className="absolute right-6 top-0 h-full flex items-center opacity-10">
             <Zap className="h-32 w-32" />
