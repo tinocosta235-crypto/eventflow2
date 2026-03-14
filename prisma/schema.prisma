@@ -129,6 +129,9 @@ model Event {
   budgetEstimated Float?
   budgetActual    Float?
 
+  clientName       String?
+  wizardCompleted  Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -140,6 +143,31 @@ model Event {
   kpiConfig      KpiConfig?
   kpiSnapshots   KpiSnapshot[]
   emailSendLogs  EmailSendLog[]
+  groups         EventGroup[]
+  plugins        EventPlugin[]
+}
+
+model EventGroup {
+  id          String   @id @default(cuid())
+  eventId     String
+  name        String
+  description String?
+  color       String   @default("blue")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventPlugin {
+  id         String   @id @default(cuid())
+  eventId    String
+  pluginType String
+  enabled    Boolean  @default(true)
+  config     String   @default("{}")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  @@unique([eventId, pluginType])
 }
 
 model Registration {

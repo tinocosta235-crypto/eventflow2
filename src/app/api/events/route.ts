@@ -71,8 +71,31 @@ export async function POST(req: NextRequest) {
         secretariatNotes: body.secretariatNotes || null,
         budgetEstimated: body.budgetEstimated ? parseFloat(body.budgetEstimated) : null,
         budgetActual: body.budgetActual ? parseFloat(body.budgetActual) : null,
+        clientName: body.clientName || null,
+        wizardCompleted: true,
       },
     });
+
+    // Crea gruppi se forniti
+    const groups: { name: string; description?: string; color?: string }[] = body.groups ?? []
+    const defaultGroups = groups.length > 0 ? groups : [{ name: "Tutti", color: "blue" }]
+    await prisma.eventGroup.createMany({
+      data: defaultGroups.map((g, i) => ({
+        eventId: event.id,
+        name: g.name,
+        description: g.description ?? null,
+        color: g.color ?? "blue",
+        order: i,
+      })),
+    })
+
+    // Crea plugin se forniti
+    const plugins: string[] = body.plugins ?? []
+    if (plugins.length > 0) {
+      await prisma.eventPlugin.createMany({
+        data: plugins.map((p) => ({ eventId: event.id, pluginType: p, enabled: true })),
+      })
+    }
 
     return NextResponse.json(event, { status: 201 });
   } catch (e) {
