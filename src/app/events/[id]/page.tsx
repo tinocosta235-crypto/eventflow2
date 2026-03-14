@@ -9,8 +9,9 @@ import { notFound } from "next/navigation";
 import {
   Calendar, MapPin, Users, ArrowLeft, Edit, Mail, QrCode, Download,
   CheckCircle2, Clock, XCircle, BarChart3, Globe, Hotel, Plane,
-  Phone, User, Euro, FileText, Info, FormInput,
+  Phone, User, Euro, FileText, Info, FormInput, TrendingUp,
 } from "lucide-react";
+import AnalyticsClient from "./analytics/AnalyticsClient";
 import Link from "next/link";
 import {
   formatDate, formatDateTime, getStatusColor, getStatusLabel, formatCurrency,
@@ -139,7 +140,7 @@ export default async function EventDetailPage({
 
         {/* Tab navigation */}
         <Tabs defaultValue="overview">
-          <TabsList className="grid grid-cols-4 w-full max-w-xl">
+          <TabsList className="grid grid-cols-5 w-full max-w-2xl">
             <TabsTrigger value="overview" className="gap-1.5">
               <Info className="h-3.5 w-3.5" />Panoramica
             </TabsTrigger>
@@ -150,6 +151,9 @@ export default async function EventDetailPage({
                   {stats.total}
                 </span>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5" />Analytics
             </TabsTrigger>
             <TabsTrigger value="logistics" className="gap-1.5">
               <Hotel className="h-3.5 w-3.5" />Logistica
@@ -570,6 +574,11 @@ export default async function EventDetailPage({
                 <DeleteEventButton eventId={event.id} />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ── ANALYTICS ── */}
+          <TabsContent value="analytics" className="mt-4">
+            <AnalyticsClient eventId={event.id} />
           </TabsContent>
         </Tabs>
       </div>

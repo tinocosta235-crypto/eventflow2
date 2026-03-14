@@ -137,6 +137,9 @@ model Event {
   formFields     FormField[]
   emailTemplates EmailTemplate[]
   checkIns       CheckIn[]
+  kpiConfig      KpiConfig?
+  kpiSnapshots   KpiSnapshot[]
+  emailSendLogs  EmailSendLog[]
 }
 
 model Registration {
@@ -222,4 +225,41 @@ model OrgInvite {
   createdAt      DateTime @default(now())
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   @@unique([organizationId, email])
+}
+
+// M5 — d*motion Score Engine
+
+model KpiConfig {
+  id        String   @id @default(cuid())
+  eventId   String   @unique
+  // JSON: { registration_rate: 25, confirmed_rate: 20, checkin_rate: 15, email_open_rate: 15, email_click_rate: 10, form_completion_rate: 10, waitlist_conversion: 5 }
+  weights   String   @default("{}")
+  // JSON array of enabled kpi keys
+  enabled   String   @default("[]")
+  updatedAt DateTime @updatedAt
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model KpiSnapshot {
+  id      String   @id @default(cuid())
+  eventId String
+  // JSON: { registration_rate: 0.75, confirmed_rate: 0.9, ... }
+  values  String   @default("{}")
+  score   Float    @default(0)
+  takenAt DateTime @default(now())
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EmailSendLog {
+  id             String    @id @default(cuid())
+  eventId        String
+  registrationId String?
+  email          String
+  subject        String
+  templateId     String?
+  status         String    @default("SENT")
+  openedAt       DateTime?
+  clickedAt      DateTime?
+  sentAt         DateTime  @default(now())
+  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }

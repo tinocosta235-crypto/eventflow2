@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     subject = tmpl.subject;
     templateBody = tmpl.body;
   } else if (type === "reminder") {
-    // Send reminder using built-in template
+    const reminderSubject = `Promemoria: ${event.title}`;
     const sends = registrations.map((reg) =>
       sendEmail({
         to: reg.email,
@@ -67,7 +67,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           onlineUrl: event.onlineUrl ?? undefined,
           registrationCode: reg.registrationCode,
         }),
-      }).catch(console.error)
+      }).then(() =>
+        prisma.emailSendLog.create({
+          data: { eventId: id, registrationId: reg.id, email: reg.email, subject: reminderSubject, status: "SENT" },
+        })
+      ).catch(console.error)
     );
     await Promise.all(sends);
     return NextResponse.json({ sent: registrations.length });
@@ -79,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // Send personalized emails
+  // Send personalized emails + log
   const sends = registrations.map((reg) =>
     sendEmail({
       to: reg.email,
@@ -90,7 +94,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         subject,
         body: templateBody,
       }),
-    }).catch(console.error)
+    }).then(() =>
+      prisma.emailSendLog.create({
+        data: {
+          eventId: id,
+          registrationId: reg.id,
+          email: reg.email,
+          subject,
+          templateId: templateId ?? null,
+          status: "SENT",
+        },
+      })
+    ).catch(console.error)
   );
   await Promise.all(sends);
 
