@@ -34,9 +34,10 @@ const SORTS = [
 
 interface EventsFilterProps {
   view: "list" | "grid";
+  hideStatus?: boolean;
 }
 
-export function EventsFilter({ view }: EventsFilterProps) {
+export function EventsFilter({ view, hideStatus = false }: EventsFilterProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -74,14 +75,16 @@ export function EventsFilter({ view }: EventsFilterProps) {
       <div className="flex items-center gap-2 flex-wrap">
         <SlidersHorizontal className="h-4 w-4 text-gray-400 flex-shrink-0" />
 
-        {/* Status filter */}
-        <select
-          value={status}
-          onChange={(e) => update("status", e.target.value)}
-          className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
+        {/* Status filter (hidden when tabs are used) */}
+        {!hideStatus && (
+          <select
+            value={status}
+            onChange={(e) => update("status", e.target.value)}
+            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        )}
 
         {/* Type filter */}
         <select
