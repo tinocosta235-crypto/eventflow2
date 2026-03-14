@@ -13,6 +13,7 @@ import {
   getScoreColor, getScoreBg,
 } from "@/lib/score-engine"
 import { AIAnalyzePanel, AIEmailScorer, AIChatPanel } from "./AIPanel"
+import { ScoreMonitorAgent, EmailDraftAgent } from "./AgentsPanel"
 
 interface AnalyticsData {
   event: { id: string; title: string; capacity: number | null; status: string }
@@ -380,6 +381,12 @@ export default function AnalyticsClient({ eventId }: { eventId: string }) {
           </CardContent>
         </Card>
       )}
+
+      {/* AI Agents */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ScoreMonitorAgent eventId={eventId} />
+        <EmailDraftAgent eventId={eventId} />
+      </div>
 
       {/* AI Layer */}
       <AIAnalyzePanel eventId={eventId} />
