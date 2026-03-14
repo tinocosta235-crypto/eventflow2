@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   LayoutDashboard, Calendar, Users, Mail, BarChart3,
-  Settings, Zap, ChevronRight, PlusCircle, LogOut,
+  Settings, Zap, ChevronRight, PlusCircle, LogOut, Hotel,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -16,6 +16,7 @@ const nav = [
   { href: "/emails", label: "Email", icon: Mail },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/phorma", label: "Phorma AI", icon: Zap, highlight: true },
+  { href: "/settings/hotels", label: "Hotel", icon: Hotel },
   { href: "/settings/profile", label: "Impostazioni", icon: Settings },
 ];
 

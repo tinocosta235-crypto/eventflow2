@@ -12,6 +12,8 @@ import {
   Phone, User, Euro, FileText, Info, FormInput, TrendingUp,
 } from "lucide-react";
 import AnalyticsClient from "./analytics/AnalyticsClient";
+import HospitalityClient from "./HospitalityClient";
+import TravelClient from "./TravelClient";
 import Link from "next/link";
 import {
   formatDate, formatDateTime, getStatusColor, getStatusLabel, formatCurrency,
@@ -427,78 +429,40 @@ export default async function EventDetailPage({
           </TabsContent>
 
           {/* ── LOGISTICA ── */}
-          <TabsContent value="logistics" className="mt-4 space-y-4">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              {/* Venue */}
-              {!event.online && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-green-500" />Venue
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    {event.location && <div><span className="text-gray-500">Location:</span> <span className="font-medium">{event.location}</span></div>}
-                    {event.city && <div><span className="text-gray-500">Città:</span> <span className="font-medium">{event.city}{event.country ? `, ${event.country}` : ""}</span></div>}
-                    {event.venueSetup && <div><span className="text-gray-500">Setup sala:</span> <span className="font-medium">{event.venueSetup}</span></div>}
-                    {event.venueNotes && (
-                      <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 mt-2">{event.venueNotes}</div>
-                    )}
-                    {!event.location && !event.city && <p className="text-gray-400">Nessuna informazione venue.</p>}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Alloggio */}
+          <TabsContent value="logistics" className="mt-4 space-y-6">
+            {/* Venue (static) */}
+            {!event.online && (event.location || event.city || event.venueSetup) && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Hotel className="h-4 w-4 text-purple-500" />Alloggio
+                    <MapPin className="h-4 w-4 text-green-500" />Venue
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm">
-                  {!event.accommodationNeeded ? (
-                    <p className="text-gray-400">Gestione alloggio non attiva.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {event.hotelName && <div><span className="text-gray-500">Hotel:</span> <span className="font-medium">{event.hotelName}</span></div>}
-                      {event.hotelAddress && <div><span className="text-gray-500">Indirizzo:</span> <span className="font-medium">{event.hotelAddress}</span></div>}
-                      {event.hotelCheckIn && <div><span className="text-gray-500">Check-in:</span> <span className="font-medium">{formatDate(event.hotelCheckIn)}</span></div>}
-                      {event.hotelCheckOut && <div><span className="text-gray-500">Check-out:</span> <span className="font-medium">{formatDate(event.hotelCheckOut)}</span></div>}
-                      {event.roomBlockSize && <div><span className="text-gray-500">Camere riservate:</span> <span className="font-medium">{event.roomBlockSize}</span></div>}
-                      {event.roomBlockDeadline && <div><span className="text-gray-500">Scadenza prenotazione:</span> <span className="font-medium">{formatDate(event.roomBlockDeadline)}</span></div>}
-                      {event.accommodationNotes && (
-                        <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 mt-2">{event.accommodationNotes}</div>
-                      )}
-                    </div>
+                <CardContent className="space-y-2 text-sm">
+                  {event.location && <div><span className="text-gray-500">Location:</span> <span className="font-medium">{event.location}</span></div>}
+                  {event.city && <div><span className="text-gray-500">Città:</span> <span className="font-medium">{event.city}{event.country ? `, ${event.country}` : ""}</span></div>}
+                  {event.venueSetup && <div><span className="text-gray-500">Setup sala:</span> <span className="font-medium">{event.venueSetup}</span></div>}
+                  {event.venueNotes && (
+                    <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 mt-2">{event.venueNotes}</div>
                   )}
                 </CardContent>
               </Card>
+            )}
 
-              {/* Trasporti */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Plane className="h-4 w-4 text-orange-500" />Trasporti
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  {!event.travelNeeded ? (
-                    <p className="text-gray-400">Gestione trasporti non attiva.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {event.airportTransfer && <Badge variant="secondary">✈️ Transfer aeroporto</Badge>}
-                        {event.shuttleService && <Badge variant="secondary">🚌 Shuttle navetta</Badge>}
-                        {event.parkingAvailable && <Badge variant="secondary">🅿️ Parcheggio</Badge>}
-                      </div>
-                      {event.travelNotes && (
-                        <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 mt-2">{event.travelNotes}</div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+            {/* Alloggio — dynamic */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+                <Hotel className="h-4 w-4 text-purple-500" />Gestione alloggio
+              </h3>
+              <HospitalityClient eventId={event.id} />
+            </div>
+
+            {/* Trasporti — dynamic */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+                <Plane className="h-4 w-4 text-orange-500" />Gestione trasporti
+              </h3>
+              <TravelClient eventId={event.id} />
             </div>
           </TabsContent>
 

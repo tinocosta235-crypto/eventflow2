@@ -18,6 +18,7 @@ model Organization {
   users   UserOrganization[]
   events  Event[]
   invites OrgInvite[]
+  hotels  Hotel[]
 }
 
 model User {
@@ -145,6 +146,8 @@ model Event {
   emailSendLogs  EmailSendLog[]
   groups         EventGroup[]
   plugins        EventPlugin[]
+  allotments     HotelAllotment[]
+  travelEntries  TravelEntry[]
 }
 
 model EventGroup {
@@ -188,9 +191,11 @@ model Registration {
   checkedInAt      DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-  event   Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  fields  RegistrationField[]
-  checkIn CheckIn?
+  event           Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fields          RegistrationField[]
+  checkIn         CheckIn?
+  roomAssignments RoomAssignment[]
+  travelEntries   TravelEntry[]
   @@unique([eventId, email])
 }
 
@@ -290,4 +295,90 @@ model EmailSendLog {
   clickedAt      DateTime?
   sentAt         DateTime  @default(now())
   event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+// M9 — Hospitality & Travel
+
+model Hotel {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  address        String?
+  city           String?
+  stars          Int?
+  phone          String?
+  email          String?
+  website        String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roomTypes      RoomType[]
+  allotments     HotelAllotment[]
+}
+
+model RoomType {
+  id          String   @id @default(cuid())
+  hotelId     String
+  name        String
+  beds        Int      @default(1)
+  price       Float?
+  currency    String   @default("EUR")
+  notes       String?
+  hotel       Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  allotments  HotelAllotment[]
+  assignments RoomAssignment[]
+}
+
+model HotelAllotment {
+  id           String    @id @default(cuid())
+  eventId      String
+  hotelId      String
+  roomTypeId   String
+  totalRooms   Int       @default(0)
+  checkIn      DateTime?
+  checkOut     DateTime?
+  deadline     DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  hotel        Hotel     @relation(fields: [hotelId], references: [id])
+  roomType     RoomType  @relation(fields: [roomTypeId], references: [id])
+  assignments  RoomAssignment[]
+  @@unique([eventId, roomTypeId])
+}
+
+model RoomAssignment {
+  id             String    @id @default(cuid())
+  allotmentId    String
+  roomTypeId     String
+  registrationId String
+  checkIn        DateTime?
+  checkOut       DateTime?
+  confirmed      Boolean   @default(false)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  allotment      HotelAllotment @relation(fields: [allotmentId], references: [id], onDelete: Cascade)
+  roomType       RoomType       @relation(fields: [roomTypeId], references: [id])
+  registration   Registration   @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  @@unique([allotmentId, registrationId])
+}
+
+model TravelEntry {
+  id             String    @id @default(cuid())
+  eventId        String
+  registrationId String
+  direction      String    @default("INBOUND")
+  type           String    @default("FLIGHT")
+  carrier        String?
+  flightNo       String?
+  departure      String?
+  arrival        String?
+  departureTime  DateTime?
+  arrivalTime    DateTime?
+  confirmed      Boolean   @default(false)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  event          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
 }
