@@ -14,6 +14,7 @@ import {
 import AnalyticsClient from "./analytics/AnalyticsClient";
 import HospitalityClient from "./HospitalityClient";
 import TravelClient from "./TravelClient";
+import GroupsClient from "./GroupsClient";
 import Link from "next/link";
 import {
   formatDate, formatDateTime, getStatusColor, getStatusLabel, formatCurrency,
@@ -142,7 +143,7 @@ export default async function EventDetailPage({
 
         {/* Tab navigation */}
         <Tabs defaultValue="overview">
-          <TabsList className="grid grid-cols-5 w-full max-w-2xl">
+          <TabsList className="grid grid-cols-6 w-full max-w-3xl">
             <TabsTrigger value="overview" className="gap-1.5">
               <Info className="h-3.5 w-3.5" />Panoramica
             </TabsTrigger>
@@ -156,6 +157,9 @@ export default async function EventDetailPage({
             </TabsTrigger>
             <TabsTrigger value="analytics" className="gap-1.5">
               <TrendingUp className="h-3.5 w-3.5" />Analytics
+            </TabsTrigger>
+            <TabsTrigger value="groups" className="gap-1.5">
+              <Users className="h-3.5 w-3.5" />Gruppi
             </TabsTrigger>
             <TabsTrigger value="logistics" className="gap-1.5">
               <Hotel className="h-3.5 w-3.5" />Logistica
@@ -493,6 +497,11 @@ export default async function EventDetailPage({
                       <Download className="h-4 w-4" />Esporta Excel
                     </Button>
                   </a>
+                  <Link href={`/events/${event.id}/masterlist`}>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <FileText className="h-4 w-4" />Masterlist
+                    </Button>
+                  </Link>
                   <Link href={`/events/${event.id}/form`}>
                     <Button variant="outline" size="sm" className="gap-2">
                       <FormInput className="h-4 w-4" />Form iscrizione
@@ -538,6 +547,11 @@ export default async function EventDetailPage({
                 <DeleteEventButton eventId={event.id} />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ── GRUPPI ── */}
+          <TabsContent value="groups" className="mt-4 space-y-4">
+            <GroupsClient eventId={event.id} />
           </TabsContent>
 
           {/* ── ANALYTICS ── */}

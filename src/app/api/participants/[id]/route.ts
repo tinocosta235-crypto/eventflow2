@@ -54,6 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ticketPrice: body.ticketPrice !== undefined
         ? (body.ticketPrice ? parseFloat(body.ticketPrice) : null)
         : existing.ticketPrice,
+      groupId: body.groupId !== undefined ? (body.groupId || null) : existing.groupId,
     },
   });
   return NextResponse.json(reg);

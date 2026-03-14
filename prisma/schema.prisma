@@ -158,7 +158,8 @@ model EventGroup {
   color       String   @default("blue")
   order       Int      @default(0)
   createdAt   DateTime @default(now())
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations Registration[]
 }
 
 model EventPlugin {
@@ -176,6 +177,7 @@ model EventPlugin {
 model Registration {
   id               String    @id @default(cuid())
   eventId          String
+  groupId          String?
   registrationCode String    @unique
   status           String    @default("PENDING")
   firstName        String
@@ -192,6 +194,7 @@ model Registration {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   event           Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  group           EventGroup?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
   fields          RegistrationField[]
   checkIn         CheckIn?
   roomAssignments RoomAssignment[]
