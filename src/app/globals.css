@@ -54,6 +54,90 @@
   --color-foreground: var(--text-primary);
   --font-sans: var(--font-bricolage, "Bricolage Grotesque"), system-ui, sans-serif;
   --font-display: var(--font-instrument, "Instrument Serif"), Georgia, serif;
+
+  /* ── Remap gray scale to dark-first ── */
+  --color-gray-50:  #090d1a;
+  --color-gray-100: #0e1526;
+  --color-gray-200: #131d30;
+  --color-gray-300: #1a2540;
+  --color-gray-400: #2d3854;
+  --color-gray-500: #495068;
+  --color-gray-600: #6b7590;
+  --color-gray-700: #8590a8;
+  --color-gray-800: #b8c0d4;
+  --color-gray-900: #edeef6;
+  --color-gray-950: #f4f5fb;
+
+  /* ── Remap slate scale to dark-first ── */
+  --color-slate-50:  #090d1a;
+  --color-slate-100: #0e1526;
+  --color-slate-200: #131d30;
+  --color-slate-300: #1a2540;
+  --color-slate-400: #495068;
+  --color-slate-500: #6b7590;
+  --color-slate-600: #8590a8;
+  --color-slate-700: #9ba5be;
+  --color-slate-800: #c4cad8;
+  --color-slate-900: #edeef6;
+
+  /* ── Light pastel bg → dark tints (for icon boxes) ── */
+  --color-green-50:    rgba(52, 211, 153, 0.12);
+  --color-blue-50:     rgba(34, 211, 238, 0.10);
+  --color-yellow-50:   rgba(249, 115, 22,  0.10);
+  --color-amber-50:    rgba(245, 158, 11,  0.10);
+  --color-orange-50:   rgba(249, 115, 22,  0.10);
+  --color-purple-50:   rgba(167, 139, 250, 0.10);
+  --color-indigo-50:   rgba(109, 98,  243, 0.10);
+  --color-red-50:      rgba(244, 63,  94,  0.10);
+  --color-pink-50:     rgba(244, 63,  94,  0.08);
+  --color-cyan-50:     rgba(34,  211, 238, 0.10);
+  --color-sky-50:      rgba(56,  189, 248, 0.10);
+  --color-teal-50:     rgba(20,  184, 166, 0.10);
+  --color-violet-50:   rgba(167, 139, 250, 0.10);
+  --color-rose-50:     rgba(244, 63,  94,  0.08);
+
+  /* ── Color-100 dark tints ── */
+  --color-green-100:   rgba(52,  211, 153, 0.16);
+  --color-blue-100:    rgba(34,  211, 238, 0.14);
+  --color-yellow-100:  rgba(249, 115, 22,  0.14);
+  --color-purple-100:  rgba(167, 139, 250, 0.14);
+  --color-indigo-100:  rgba(109, 98,  243, 0.14);
+  --color-red-100:     rgba(244, 63,  94,  0.12);
+  --color-cyan-100:    rgba(34,  211, 238, 0.14);
+  --color-orange-100:  rgba(249, 115, 22,  0.14);
+
+  /* ── Bright saturated for -600 (readable on dark bg) ── */
+  --color-green-600:   #34d399;
+  --color-blue-600:    #38bdf8;
+  --color-yellow-600:  #f59e0b;
+  --color-amber-600:   #f59e0b;
+  --color-orange-600:  #f97316;
+  --color-purple-600:  #a78bfa;
+  --color-indigo-600:  #818cf8;
+  --color-red-600:     #f43f5e;
+  --color-pink-600:    #f472b6;
+  --color-cyan-600:    #22d3ee;
+  --color-sky-600:     #38bdf8;
+  --color-teal-600:    #2dd4bf;
+  --color-violet-600:  #a78bfa;
+  --color-rose-600:    #fb7185;
+
+  /* ── -700/800/900 text on dark tinted bg ── */
+  --color-green-700:   #6ee7b7;
+  --color-blue-700:    #7dd3fc;
+  --color-yellow-700:  #fcd34d;
+  --color-purple-700:  #c4b5fd;
+  --color-indigo-700:  #a5b4fc;
+  --color-red-700:     #fca5a5;
+  --color-cyan-700:    #67e8f9;
+  --color-orange-700:  #fdba74;
+  --color-green-800:   #a7f3d0;
+  --color-blue-800:    #bae6fd;
+  --color-purple-800:  #ddd6fe;
+  --color-indigo-800:  #c7d2fe;
+  --color-red-800:     #fecaca;
+  --color-green-900:   #d1fae5;
+  --color-blue-900:    #e0f2fe;
 }
 
 /* ─── BASE ───────────────────────────────────────────────────── */
@@ -245,15 +329,33 @@ body {
 }
 
 /* ─── FORMS ──────────────────────────────────────────────────── */
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+
+/* All inputs default to dark theme (browser default is white) */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="color"]),
 textarea,
 select {
+  background-color: rgba(14, 21, 38, 0.80);
   color: var(--text-primary);
   caret-color: var(--accent-light);
+  border-color: rgba(109, 98, 243, 0.22);
 }
 
 input::placeholder,
 textarea::placeholder {
   color: var(--text-secondary);
   opacity: 1;
+}
+
+/* bg-white override — in the authenticated app there should be no white surfaces */
+body .bg-white {
+  background-color: var(--depth-2) !important;
+}
+/* text-white must stay white */
+.text-white { color: #ffffff !important; }
+
+/* Border-gray-200/100 overrides are handled by the @theme slate remap above */
+
+/* Fix for table row hover (was bg-gray-50 = now dark) */
+body .hover\:bg-gray-50:hover {
+  background-color: rgba(109, 98, 243, 0.06) !important;
 }
