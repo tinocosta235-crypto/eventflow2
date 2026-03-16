@@ -1,28 +1,28 @@
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Header } from "@/components/layout/header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import {
-  Calendar, Users, TrendingUp, Euro, ArrowUpRight,
-  ArrowRight, Plus, Zap, CheckCircle2, Clock,
-} from "lucide-react";
+import { Calendar, Users, TrendingUp, Euro, ArrowUpRight, Plus, CheckCircle2, Clock, Zap, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
+
+const PILOT_MOCK_EVENTS = [
+  { id: "mock-pirelli", title: "Evento Pirelli", status: "PUBLISHED", startDate: new Date("2026-05-08T09:00:00.000Z"), _count: { registrations: 180 }, capacity: 260 },
+  { id: "mock-kfc", title: "KFC RGM Meeting 2026", status: "DRAFT", startDate: new Date("2026-06-16T08:00:00.000Z"), _count: { registrations: 95 }, capacity: 180 },
+  { id: "mock-wurth", title: "Wurth Kick-Off", status: "PUBLISHED", startDate: new Date("2026-04-22T08:00:00.000Z"), _count: { registrations: 240 }, capacity: 300 },
+] as const;
 
 export default async function DashboardPage() {
   const session = await auth();
   const orgId = session?.user?.organizationId ?? "";
 
-  const [totalEvents, totalRegistrations, upcomingEvents, recentRegistrations] = await Promise.all([
-    prisma.event.count({ where: { organizationId: orgId } }),
-    prisma.registration.count({
-      where: { status: "CONFIRMED", event: { organizationId: orgId } },
-    }),
+  const [events, totalRegistrations, upcomingEventsDb, recentRegistrations] = await Promise.all([
+    prisma.event.findMany({ where: { organizationId: orgId }, include: { _count: { select: { registrations: true } } } }),
+    prisma.registration.count({ where: { event: { organizationId: orgId } } }),
     prisma.event.findMany({
       where: { organizationId: orgId, status: "PUBLISHED", startDate: { gte: new Date() } },
       orderBy: { startDate: "asc" },
@@ -37,160 +37,241 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  const revenue = await prisma.registration.aggregate({
-    _sum: { ticketPrice: true },
-    where: { paymentStatus: "PAID", event: { organizationId: orgId } },
-  });
+  const [revenue, emailLogs] = await Promise.all([
+    prisma.registration.aggregate({
+      _sum: { ticketPrice: true },
+      where: { paymentStatus: "PAID", event: { organizationId: orgId } },
+    }),
+    prisma.emailSendLog.findMany({
+      where: { event: { organizationId: orgId } },
+      select: { openedAt: true },
+      take: 500,
+      orderBy: { sentAt: "desc" },
+    }),
+  ]);
 
-  const stats = [
-    { label: "Eventi Totali", value: totalEvents, icon: Calendar, color: "text-blue-600", bg: "bg-blue-50", change: "+2 questo mese" },
-    { label: "Partecipanti Confermati", value: totalRegistrations, icon: Users, color: "text-green-600", bg: "bg-green-50", change: "+18% vs mese scorso" },
-    { label: "Entrate Totali", value: formatCurrency(revenue._sum.ticketPrice ?? 0), icon: Euro, color: "text-purple-600", bg: "bg-purple-50", change: "Da biglietti venduti" },
-    { label: "Tasso Conversione", value: "73%", icon: TrendingUp, color: "text-orange-600", bg: "bg-orange-50", change: "+5% rispetto al target" },
+  const totalEvents = events.length;
+  const pilotMockMode = totalEvents === 0;
+  const upcomingEvents = pilotMockMode ? PILOT_MOCK_EVENTS : upcomingEventsDb;
+  const eventsForStats = pilotMockMode ? PILOT_MOCK_EVENTS : events;
+
+  const eventsByStatus = eventsForStats.reduce<Record<string, number>>((acc, e) => {
+    acc[e.status] = (acc[e.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const publishedEvents = eventsByStatus.PUBLISHED ?? 0;
+  const draftEvents = eventsByStatus.DRAFT ?? 0;
+
+  const registrationsForRate = eventsForStats.reduce((sum, e) => sum + e._count.registrations, 0);
+  const capacityForRate = eventsForStats.reduce((sum, e) => sum + (e.capacity ?? 0), 0);
+  const registrationRate = capacityForRate > 0 ? Math.round((registrationsForRate / capacityForRate) * 100) : 0;
+  const openRate = emailLogs.length > 0 ? Math.round((emailLogs.filter((l) => !!l.openedAt).length / emailLogs.length) * 100) : 0;
+
+  const kpis = [
+    { label: "Eventi Totali", value: totalEvents, icon: Calendar, color: "#0071E3", bg: "rgba(0,113,227,0.08)" },
+    { label: "Eventi per status", value: `${publishedEvents}/${draftEvents}`, icon: CheckCircle2, color: "#34C759", bg: "rgba(52,199,89,0.08)" },
+    { label: "Entrate", value: formatCurrency(revenue._sum.ticketPrice ?? 0), icon: Euro, color: "#AF52DE", bg: "rgba(175,82,222,0.08)" },
+    { label: "Partecipanti gestiti", value: totalRegistrations, icon: Users, color: "#6366F1", bg: "rgba(99,102,241,0.1)" },
+    { label: "Open rate medio", value: `${openRate}%`, icon: TrendingUp, color: "#0EA5E9", bg: "rgba(14,165,233,0.1)" },
+    { label: "Registration rate", value: `${registrationRate}%`, icon: ArrowUpRight, color: "#F59E0B", bg: "rgba(245,158,11,0.12)" },
   ];
+
+  const firstName = session?.user?.name?.split(" ")[0] ?? "";
+  const dateStr = new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <DashboardLayout>
       <Header
-        title="Dashboard"
-        subtitle={`Benvenuto, ${session?.user?.name?.split(" ")[0] ?? ""}! Oggi è ${new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}`}
+        title={`Buongiorno, ${firstName}`}
+        subtitle={dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}
         actions={
           <Link href="/events/new">
-            <Button size="sm" className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nuovo Evento
+            <Button size="sm" className="gap-2 rounded-lg text-sm font-medium" style={{ background: "#0071E3", color: "#fff", border: "none" }}>
+              <Plus className="h-3.5 w-3.5" />
+              Nuovo evento
             </Button>
           </Link>
         }
       />
 
-      <div className="p-6 space-y-6">
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-          {stats.map((s) => (
-            <Card key={s.label}>
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`h-10 w-10 rounded-xl ${s.bg} flex items-center justify-center`}>
-                    <s.icon className={`h-5 w-5 ${s.color}`} />
-                  </div>
-                  <ArrowUpRight className="h-4 w-4 text-green-500" />
+      <div className="p-8 space-y-6">
+        {/* KPI Grid */}
+        {pilotMockMode && (
+          <div className="rounded-xl border border-cyan-300/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-100">
+            KPI shell attiva in modalita mockup per i pilot: Evento Pirelli, KFC RGM Meeting 2026, Wurth Kick-Off.
+          </div>
+        )}
+        <div className="grid grid-cols-2 xl:grid-cols-6 gap-4">
+          {kpis.map((kpi) => (
+            <div
+              key={kpi.label}
+              className="rounded-2xl p-5"
+              style={{
+                background: "linear-gradient(160deg, rgba(14,21,38,0.90), rgba(9,13,26,0.80))",
+                border: "1px solid rgba(109,98,243,0.15)",
+                boxShadow: "0 4px 20px rgba(6,8,15,0.22), inset 0 1px 0 rgba(255,255,255,0.04)",
+              }}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: kpi.bg }}>
+                  <kpi.icon className="h-[18px] w-[18px]" style={{ color: kpi.color }} />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{s.value}</p>
-                <p className="text-sm text-gray-500 mt-0.5">{s.label}</p>
-                <p className="text-xs text-green-600 mt-1 font-medium">{s.change}</p>
-              </CardContent>
-            </Card>
+                <ArrowUpRight className="h-4 w-4" style={{ color: "#34d399" }} />
+              </div>
+              <p className="text-2xl font-semibold tracking-tight" style={{ color: "#edeef6" }}>{kpi.value}</p>
+              <p className="text-[13px] mt-0.5" style={{ color: "#8590a8" }}>{kpi.label}</p>
+            </div>
           ))}
         </div>
 
+        {/* Main content grid */}
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-          <Card className="xl:col-span-3">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-base">Prossimi Eventi</CardTitle>
+          {/* Upcoming events */}
+          <div
+            className="xl:col-span-3 rounded-2xl overflow-hidden"
+            style={{
+              background: "linear-gradient(160deg, rgba(14,21,38,0.90), rgba(9,13,26,0.80))",
+              border: "1px solid rgba(109,98,243,0.15)",
+              boxShadow: "0 4px 20px rgba(6,8,15,0.22)",
+            }}
+          >
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(109,98,243,0.10)" }}>
+              <p className="text-[15px] font-semibold" style={{ color: "#edeef6" }}>Prossimi eventi</p>
               <Link href="/events">
-                <Button variant="ghost" size="sm" className="gap-1 text-xs">
+                <span className="text-[13px] flex items-center gap-1 transition-opacity hover:opacity-80" style={{ color: "#8b80ff" }}>
                   Vedi tutti <ArrowRight className="h-3 w-3" />
-                </Button>
+                </span>
               </Link>
-            </CardHeader>
-            <CardContent className="px-0">
-              {upcomingEvents.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
-                  <Calendar className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Nessun evento in programma</p>
-                  <Link href="/events/new">
-                    <Button size="sm" className="mt-3 gap-2">
-                      <Plus className="h-4 w-4" /> Crea il primo evento
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {upcomingEvents.map((event) => {
-                    const fill = event.capacity
-                      ? Math.min(Math.round((event._count.registrations / event.capacity) * 100), 100)
-                      : 0;
-                    return (
-                      <Link key={event.id} href={`/events/${event.id}`}>
-                        <div className="px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-sm font-medium text-gray-900 truncate">{event.title}</p>
-                            <Badge className={getStatusColor(event.status)}>{getStatusLabel(event.status)}</Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(event.startDate)}</span>
-                            <span className="flex items-center gap-1"><Users className="h-3 w-3" />{event._count.registrations}{event.capacity ? ` / ${event.capacity}` : ""}</span>
-                          </div>
-                          {event.capacity && (
-                            <div className="mt-2 h-1 rounded-full bg-gray-100">
-                              <div className="h-1 rounded-full bg-blue-500 transition-all" style={{ width: `${fill}%` }} />
-                            </div>
-                          )}
+            </div>
+            {upcomingEvents.length === 0 ? (
+              <div className="text-center py-16">
+                <Calendar className="h-10 w-10 mx-auto mb-3 opacity-20" style={{ color: "#8590a8" }} />
+                <p className="text-[13px]" style={{ color: "#8590a8" }}>Nessun evento in programma</p>
+                <Link href="/events/new">
+                  <button className="mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-colors" style={{ background: "linear-gradient(135deg,#6d62f3,#5548d9)", color: "#fff" }}>
+                    Crea il primo evento
+                  </button>
+                </Link>
+              </div>
+            ) : (
+              <div>
+                {upcomingEvents.map((event, i) => {
+                  const fill = event.capacity ? Math.min(Math.round((event._count.registrations / event.capacity) * 100), 100) : 0;
+                  return (
+                    <Link key={event.id} href={`/events/${event.id}`}>
+                      <div
+                        className="px-5 py-3.5 transition-colors cursor-pointer"
+                        style={{ borderBottom: i < upcomingEvents.length - 1 ? "1px solid rgba(109,98,243,0.08)" : "none" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(109,98,243,0.05)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[14px] font-medium truncate" style={{ color: "#edeef6" }}>{event.title}</p>
+                          <Badge className={getStatusColor(event.status)}>{getStatusLabel(event.status)}</Badge>
                         </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                        <div className="flex items-center gap-4 text-[12px]" style={{ color: "#8590a8" }}>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />{formatDate(event.startDate)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />{event._count.registrations}{event.capacity ? ` / ${event.capacity}` : ""}
+                          </span>
+                        </div>
+                        {event.capacity && (
+                          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "rgba(109,98,243,0.12)" }}>
+                            <div
+                              className="h-1 rounded-full transition-all"
+                              style={{
+                                width: `${fill}%`,
+                                background: fill > 90 ? "#f43f5e" : fill > 70 ? "#f97316" : "#34d399",
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-          <Card className="xl:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-base">Iscrizioni Recenti</CardTitle>
+          {/* Recent registrations */}
+          <div
+            className="xl:col-span-2 rounded-2xl overflow-hidden"
+            style={{
+              background: "linear-gradient(160deg, rgba(14,21,38,0.90), rgba(9,13,26,0.80))",
+              border: "1px solid rgba(109,98,243,0.15)",
+              boxShadow: "0 4px 20px rgba(6,8,15,0.22)",
+            }}
+          >
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(109,98,243,0.10)" }}>
+              <p className="text-[15px] font-semibold" style={{ color: "#edeef6" }}>Iscrizioni recenti</p>
               <Link href="/participants">
-                <Button variant="ghost" size="sm" className="gap-1 text-xs">
+                <span className="text-[13px] flex items-center gap-1 transition-opacity hover:opacity-80" style={{ color: "#8b80ff" }}>
                   Tutte <ArrowRight className="h-3 w-3" />
-                </Button>
+                </span>
               </Link>
-            </CardHeader>
-            <CardContent className="px-0">
-              {recentRegistrations.length === 0 ? (
-                <p className="text-center py-8 text-sm text-gray-400">Nessuna iscrizione</p>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {recentRegistrations.map((reg) => (
-                    <div key={reg.id} className="px-5 py-2.5 flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                        {reg.firstName[0]}{reg.lastName[0]}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{reg.firstName} {reg.lastName}</p>
-                        <p className="text-xs text-gray-400 truncate">{reg.event.title}</p>
-                      </div>
-                      {reg.status === "CONFIRMED"
-                        ? <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                        : <Clock className="h-4 w-4 text-yellow-500 flex-shrink-0" />}
+            </div>
+            {recentRegistrations.length === 0 ? (
+              <p className="text-center py-10 text-[13px]" style={{ color: "#8590a8" }}>Nessuna iscrizione</p>
+            ) : (
+              <div>
+                {recentRegistrations.map((reg, i) => (
+                  <div
+                    key={reg.id}
+                    className="px-5 py-3 flex items-center gap-3"
+                    style={{ borderBottom: i < recentRegistrations.length - 1 ? "1px solid rgba(109,98,243,0.08)" : "none" }}
+                  >
+                    <div
+                      className="h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold flex-shrink-0"
+                      style={{ background: "linear-gradient(135deg, #6d62f3, #9b8af5)" }}
+                    >
+                      {reg.firstName[0]}{reg.lastName[0]}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium truncate" style={{ color: "#edeef6" }}>{reg.firstName} {reg.lastName}</p>
+                      <p className="text-[11px] truncate" style={{ color: "#8590a8" }}>{reg.event.title}</p>
+                    </div>
+                    {reg.status === "CONFIRMED"
+                      ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "#34d399" }} />
+                      : <Clock className="h-4 w-4 flex-shrink-0" style={{ color: "#f97316" }} />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <Card className="border-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white overflow-hidden relative">
-          <div className="absolute right-6 top-0 h-full flex items-center opacity-10">
-            <Zap className="h-32 w-32" />
+        {/* Phorma AI banner */}
+        <div
+          className="rounded-2xl p-6 flex items-center justify-between overflow-hidden relative"
+          style={{
+            background: "linear-gradient(135deg, #0071E3 0%, #5856D6 50%, #AF52DE 100%)",
+          }}
+        >
+          <div className="absolute right-8 top-1/2 -translate-y-1/2 opacity-10">
+            <Zap className="h-24 w-24 text-white" />
           </div>
-          <CardContent className="p-6 flex items-center justify-between relative">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="h-5 w-5 text-yellow-300" />
-                <span className="font-semibold text-lg">Phorma AI</span>
-                <span className="bg-white/20 text-xs px-2 py-0.5 rounded-full">Nuovo</span>
-              </div>
-              <p className="text-blue-100 text-sm max-w-md">
-                Crea landing page e moduli di iscrizione professionali in pochi secondi con l&apos;intelligenza artificiale.
-              </p>
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="h-4 w-4 text-white/90" strokeWidth={2.5} />
+              <span className="text-white font-semibold text-[15px]">Phorma AI</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.2)", color: "#fff" }}>BETA</span>
             </div>
-            <Link href="/phorma">
-              <Button className="bg-white text-blue-700 hover:bg-blue-50 font-semibold gap-2 flex-shrink-0">
-                Prova Phorma <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+            <p className="text-[13px] leading-relaxed max-w-md" style={{ color: "rgba(255,255,255,0.8)" }}>
+              Crea landing page e moduli di iscrizione professionali in pochi secondi con l&apos;intelligenza artificiale.
+            </p>
+          </div>
+          <Link href="/phorma" className="relative flex-shrink-0">
+            <button
+              className="px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors"
+              style={{ background: "rgba(255,255,255,0.95)", color: "#0071E3" }}
+            >
+              Prova Phorma <ArrowRight className="h-4 w-4" />
+            </button>
+          </Link>
+        </div>
       </div>
     </DashboardLayout>
   );

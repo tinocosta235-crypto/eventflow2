@@ -89,7 +89,7 @@ export function TopNav() {
           {orgName && (
             <p
               className="text-[10px] truncate max-w-[110px] mt-0.5"
-              style={{ color: "rgba(139, 128, 255, 0.75)" }}
+              style={{ color: "var(--text-secondary)" }}
             >
               {orgName}
             </p>
@@ -156,7 +156,7 @@ export function TopNav() {
           </div>
           <span
             className="text-sm hidden md:block"
-            style={{ color: "rgba(237, 238, 246, 0.72)", fontWeight: 420 }}
+            style={{ color: "var(--text-primary)", fontWeight: 450 }}
           >
             {userName}
           </span>

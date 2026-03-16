@@ -68,17 +68,8 @@
   --color-gray-900: #edeef6;
   --color-gray-950: #f4f5fb;
 
-  /* ── Remap slate scale to dark-first ── */
-  --color-slate-50:  #090d1a;
-  --color-slate-100: #0e1526;
-  --color-slate-200: #131d30;
-  --color-slate-300: #1a2540;
-  --color-slate-400: #495068;
-  --color-slate-500: #6b7590;
-  --color-slate-600: #8590a8;
-  --color-slate-700: #9ba5be;
-  --color-slate-800: #c4cad8;
-  --color-slate-900: #edeef6;
+  /* Slate kept as-is — used for text-slate-100/200/300 (light text on dark bg).
+     Only override the surface/bg-facing ones where needed via selector below. */
 
   /* ── Light pastel bg → dark tints (for icon boxes) ── */
   --color-green-50:    rgba(52, 211, 153, 0.12);
@@ -346,16 +337,34 @@ textarea::placeholder {
   opacity: 1;
 }
 
-/* bg-white override — in the authenticated app there should be no white surfaces */
-body .bg-white {
+/* ── bg-white overrides (classes + opacity variants + bg-slate-50/100) ─── */
+body .bg-white,
+body .bg-slate-50,
+body .bg-slate-100 {
   background-color: var(--depth-2) !important;
 }
+body .bg-white\/90 { background-color: rgba(14, 21, 38, 0.90) !important; }
+body .bg-white\/95 { background-color: rgba(14, 21, 38, 0.95) !important; }
+body .bg-white\/80 { background-color: rgba(14, 21, 38, 0.80) !important; }
+body .bg-white\/5  { background-color: rgba(109, 98, 243, 0.05) !important; }
+body .bg-white\/10 { background-color: rgba(109, 98, 243, 0.08) !important; }
+
 /* text-white must stay white */
 .text-white { color: #ffffff !important; }
 
-/* Border-gray-200/100 overrides are handled by the @theme slate remap above */
-
-/* Fix for table row hover (was bg-gray-50 = now dark) */
-body .hover\:bg-gray-50:hover {
+/* Table row hover */
+body .hover\:bg-gray-50:hover,
+body .hover\:bg-slate-50:hover {
   background-color: rgba(109, 98, 243, 0.06) !important;
 }
+
+/* Borders that use light values */
+body .border-gray-100,
+body .border-gray-200,
+body .border-slate-100,
+body .border-slate-200 {
+  border-color: rgba(109, 98, 243, 0.14) !important;
+}
+
+/* Slate surface backgrounds explicitly used as light backgrounds */
+body .bg-slate-200 { background-color: var(--depth-3) !important; }
