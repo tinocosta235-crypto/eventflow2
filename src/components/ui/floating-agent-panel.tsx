@@ -1,110 +1,156 @@
 "use client"
 
+import { useState } from "react"
 import { usePathname } from "next/navigation"
 import { CopilotKit } from "@copilotkit/react-core"
-import { CopilotPopup } from "@copilotkit/react-ui"
+import { CopilotChat } from "@copilotkit/react-ui"
 import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core"
-// styles imported globally in globals.css
+import { X, Sparkles } from "lucide-react"
 
-// Estrae l'eventId dal pathname /events/[id]/...
 function extractEventId(pathname: string): string | null {
   const match = pathname.match(/\/events\/([^/]+)/)
   return match ? match[1] : null
 }
 
-// ── Context + Actions bridge (deve stare dentro CopilotKit provider) ──────────
+// ── Agent actions bridge ──────────────────────────────────────────────────────
 
 function AgentBridge({ eventId }: { eventId: string | null }) {
   useCopilotReadable({
-    description: "Contesto corrente della piattaforma Phorma",
+    description: "Contesto corrente Phorma",
     value: {
-      platform: "Phorma - Gestione eventi professionale",
+      platform: "Phorma - Gestione eventi",
       eventId: eventId ?? null,
       hasEventContext: !!eventId,
-      availableAgents: ["report", "email_tracker", "form_audit", "flow_consultant"],
     },
   })
 
-  // Agente Report
   useCopilotAction({
     name: "generateReport",
-    description: "Genera un report completo sull'evento: iscrizioni, presenze, comunicazioni, hospitality. Usa questo quando l'utente chiede un report, un riepilogo o un'analisi dell'evento.",
+    description: "Genera un report completo sull'evento (iscrizioni, presenze, comunicazioni). Usalo quando l'utente chiede un report o un riepilogo.",
     parameters: [],
     handler: async () => {
-      if (!eventId) return "Nessun evento selezionato. Apri un evento per usare questo agente."
+      if (!eventId) return "Nessun evento selezionato. Apri un evento prima."
       const res = await fetch(`/api/events/${eventId}/ai/agents/report`, { method: "POST" })
       if (!res.ok) return "Errore nella generazione del report."
       const data = await res.json() as { sections?: Array<{ title: string; content: string }> }
-      if (!data.sections?.length) return "Report generato ma vuoto."
+      if (!data.sections?.length) return "Report vuoto."
       return data.sections.map((s) => `## ${s.title}\n${s.content}`).join("\n\n")
     },
   })
 
-  // Agente Email Tracker
   useCopilotAction({
     name: "analyzeEmails",
-    description: "Analizza le campagne email dell'evento: tassi apertura, click, bounce e suggerimenti. Usa quando l'utente chiede dell'email marketing o delle comunicazioni.",
+    description: "Analizza le campagne email: aperture, click, bounce. Usalo quando l'utente chiede delle email o comunicazioni.",
     parameters: [],
     handler: async () => {
       if (!eventId) return "Nessun evento selezionato."
       const res = await fetch(`/api/events/${eventId}/ai/agents/email-tracker`, { method: "POST" })
-      if (!res.ok) return "Errore nell'analisi email."
-      const data = await res.json() as { summary?: string; issues?: Array<{ campaign: string; issue: string }> }
-      const issues = data.issues?.map((i) => `- **${i.campaign}**: ${i.issue}`).join("\n") ?? ""
-      return `${data.summary ?? "Analisi completata."}\n\n${issues}`
+      if (!res.ok) return "Errore analisi email."
+      const data = await res.json() as { summary?: string }
+      return data.summary ?? "Analisi completata."
     },
   })
 
-  // Agente Form Audit
   useCopilotAction({
     name: "auditForm",
-    description: "Analizza il form di registrazione dell'evento: qualità dei campi, tasso completamento, suggerimenti di miglioramento. Usa quando l'utente chiede del form.",
+    description: "Analizza il form di registrazione e suggerisce miglioramenti.",
     parameters: [],
     handler: async () => {
       if (!eventId) return "Nessun evento selezionato."
       const res = await fetch(`/api/events/${eventId}/ai/agents/form-audit`, { method: "POST" })
-      if (!res.ok) return "Errore nell'audit del form."
-      const data = await res.json() as { summary?: string; improvements?: Array<{ field: string; suggestion: string }> }
-      const improvements = data.improvements?.map((i) => `- **${i.field}**: ${i.suggestion}`).join("\n") ?? ""
-      return `${data.summary ?? "Audit completato."}\n\n${improvements}`
+      if (!res.ok) return "Errore audit form."
+      const data = await res.json() as { summary?: string }
+      return data.summary ?? "Audit completato."
     },
   })
 
-  // Agente Flow Consultant
   useCopilotAction({
     name: "consultFlow",
-    description: "Analizza e ottimizza il flow dell'evento. Propone modifiche al workflow automatizzato. Usa quando l'utente chiede del flow o delle automazioni.",
+    description: "Analizza e ottimizza il workflow dell'evento.",
     parameters: [],
     handler: async () => {
       if (!eventId) return "Nessun evento selezionato."
       const res = await fetch(`/api/events/${eventId}/ai/agents/flow-consultant`, { method: "POST" })
-      if (!res.ok) return "Errore nella consulenza flow."
-      const data = await res.json() as { analysis?: string; proposals?: Array<{ title: string; summary: string }> }
-      const proposals = data.proposals?.map((p) => `- **${p.title}**: ${p.summary}`).join("\n") ?? ""
-      return `${data.analysis ?? "Analisi completata."}\n\n${proposals}`
+      if (!res.ok) return "Errore consulenza flow."
+      const data = await res.json() as { analysis?: string }
+      return data.analysis ?? "Analisi completata."
     },
   })
 
+  return null
+}
+
+// ── Main floating panel ───────────────────────────────────────────────────────
+
+function PanelInner({ eventId }: { eventId: string | null }) {
+  const [open, setOpen] = useState(false)
+
   return (
-    <CopilotPopup
-      instructions={`Sei Phorma AI, l'assistente intelligente integrato nella piattaforma di gestione eventi Phorma.
-Hai accesso a 4 agenti specializzati che puoi attivare:
-- **generateReport**: genera un report completo sull'evento
-- **analyzeEmails**: analizza le campagne email e i tassi di apertura
-- **auditForm**: verifica e migliora il form di registrazione
-- **consultFlow**: ottimizza il workflow automatizzato dell'evento
+    <>
+      <AgentBridge eventId={eventId} />
 
-${eventId ? `Stai lavorando sull'evento con ID: ${eventId}.` : "Nessun evento selezionato — naviga su un evento per sbloccare gli agenti."}
+      {/* Floating button */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          position: "fixed",
+          bottom: "24px",
+          right: "24px",
+          zIndex: 99999,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          background: "linear-gradient(135deg, #7060CC, #9D8DF5)",
+          color: "#fff",
+          border: "none",
+          borderRadius: "999px",
+          padding: "12px 20px",
+          fontSize: "14px",
+          fontWeight: 600,
+          cursor: "pointer",
+          boxShadow: "0 4px 24px rgba(112,96,204,0.45)",
+        }}
+      >
+        {open ? <X size={18} /> : <Sparkles size={18} />}
+        {open ? "Chiudi" : "Agenti AI"}
+      </button>
 
-Rispondi sempre in italiano. Sii conciso e professionale. Suggerisci proattivamente quale agente usare in base alla domanda dell'utente.`}
-      defaultOpen={false}
-      labels={{
-        title: "✦ Agenti Phorma",
-        initial: eventId
-          ? "Ciao! Sono qui per aiutarti. Posso generare report, analizzare email, auditare il form o ottimizzare il flow. Come posso aiutarti?"
-          : "Ciao! Apri un evento per sbloccare tutti gli agenti AI.",
-      }}
-    />
+      {/* Chat panel */}
+      {open && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "80px",
+            right: "24px",
+            width: "380px",
+            height: "520px",
+            zIndex: 99998,
+            borderRadius: "16px",
+            overflow: "hidden",
+            boxShadow: "0 8px 48px rgba(0,0,0,0.3)",
+            border: "1px solid rgba(112,96,204,0.3)",
+            background: "#0D0522",
+          }}
+        >
+          <CopilotChat
+            instructions={`Sei Phorma AI, assistente per la gestione eventi. Rispondi in italiano, sii conciso.
+Hai 4 azioni disponibili:
+- generateReport: report completo sull'evento
+- analyzeEmails: analisi campagne email
+- auditForm: audit form di registrazione
+- consultFlow: ottimizzazione workflow
+${eventId ? `Evento corrente: ${eventId}` : "Nessun evento selezionato — vai su un evento per usare gli agenti."}`}
+            labels={{
+              title: "✦ Agenti Phorma",
+              initial: eventId
+                ? "Ciao! Posso generare report, analizzare email, auditare il form o ottimizzare il flow. Come posso aiutarti?"
+                : "Ciao! Apri un evento per usare gli agenti AI.",
+              placeholder: "Scrivi un messaggio...",
+            }}
+          />
+        </div>
+      )}
+    </>
   )
 }
 
@@ -116,7 +162,7 @@ export function FloatingAgentPanel() {
 
   return (
     <CopilotKit runtimeUrl="/api/copilotkit">
-      <AgentBridge eventId={eventId} />
+      <PanelInner eventId={eventId} />
     </CopilotKit>
   )
 }
