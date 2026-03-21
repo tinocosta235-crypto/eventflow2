@@ -1,21 +1,11 @@
 import "server-only";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
 
 function createPrisma() {
-  const connectionString = (process.env.DATABASE_URL ?? "")
-    .replace("?pgbouncer=true", "")
-    .replace("&pgbouncer=true", "");
-  const pool = new Pool({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-    max: 1,
-    idleTimeoutMillis: 0,
-    connectionTimeoutMillis: 10000,
+  return new PrismaClient({
+    datasourceUrl: process.env.DATABASE_URL,
+    log: ["error"],
   });
-  const adapter = new PrismaPg(pool as never);
-  return new PrismaClient({ adapter, log: ["error"] });
 }
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
