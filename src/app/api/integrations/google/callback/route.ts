@@ -4,6 +4,7 @@ import { encryptTokens } from "@/lib/token-crypto";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
+  try {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
   const orgId = searchParams.get("state");
@@ -92,4 +93,8 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.redirect(`${appUrl}/settings/integrations?success=google`);
+  } catch (err) {
+    console.error("[google/callback] error:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 }
