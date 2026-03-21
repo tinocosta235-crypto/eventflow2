@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { encryptTokens } from "@/lib/token-crypto";
 import { logAudit } from "@/lib/audit";
-import { auth } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -56,8 +55,7 @@ export async function GET(req: NextRequest) {
     scope: tokens.scope,
   };
 
-  const session = await auth();
-  const actorId = session?.user?.id ?? "system";
+  const actorId = "system";
 
   const email = userInfo.mail ?? userInfo.userPrincipalName;
 
