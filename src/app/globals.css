@@ -1,24 +1,4 @@
 @import "tailwindcss";
-@import "@copilotkit/react-ui/styles.css";
-
-/* ─── COPILOTKIT DARK THEME OVERRIDE ────────────────────────── */
-:root {
-  --copilot-kit-primary-color: #7060CC;
-  --copilot-kit-contrast-color: #ffffff;
-  --copilot-kit-background-color: #0D0522;
-  --copilot-kit-secondary-color: #1A0A3D;
-  --copilot-kit-muted-color: #A89ECE;
-  --copilot-kit-separator-color: rgba(112, 96, 204, 0.2);
-  --copilot-kit-response-button-color: #7060CC;
-  --copilot-kit-response-button-background-color: rgba(112, 96, 204, 0.15);
-}
-
-/* Ensure CopilotKit popup is always on top */
-.copilotKitButton,
-.copilotKitPopup,
-[class*="copilotKit"] {
-  z-index: 9999 !important;
-}
 
 /* ─── PHORMA DESIGN TOKENS ─────────────────────────────────── */
 :root {
