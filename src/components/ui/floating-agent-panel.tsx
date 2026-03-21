@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation"
 import { CopilotKit } from "@copilotkit/react-core"
 import { CopilotPopup } from "@copilotkit/react-ui"
 import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core"
-import "@copilotkit/react-ui/styles.css"
+// styles imported globally in globals.css
 
 // Estrae l'eventId dal pathname /events/[id]/...
 function extractEventId(pathname: string): string | null {

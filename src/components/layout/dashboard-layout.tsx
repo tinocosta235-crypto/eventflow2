@@ -5,7 +5,7 @@ import { FloatingAgentPanel } from "@/components/ui/floating-agent-panel";
 
 export function DashboardLayout({ children, noPadding }: { children: React.ReactNode; noPadding?: boolean }) {
   return (
-    <div className="min-h-screen relative overflow-x-clip" style={{ background: "transparent" }}>
+    <div className="min-h-screen relative" style={{ background: "transparent", overflowX: "clip" }}>
       <div className="ef-bg-aurora" />
       <div className="ef-bg-grid" />
       <TopNav />
