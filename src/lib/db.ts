@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 function createPrisma() {
   return new PrismaClient({
-    datasourceUrl: process.env.DATABASE_URL,
+    datasourceUrl: process.env.DATABASE_URL ?? "",
     log: ["error"],
   });
 }
