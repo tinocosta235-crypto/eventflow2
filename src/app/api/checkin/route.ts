@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireMember } from "@/lib/auth-helpers";
+import { runEventFlowTrigger } from "@/lib/event-flow-runtime";
 
 export async function POST(req: NextRequest) {
   const result = await requireMember();
@@ -29,6 +30,20 @@ export async function POST(req: NextRequest) {
     }),
     prisma.registration.update({ where: { id: reg.id }, data: { checkedInAt: now, status: "CONFIRMED" } }),
   ]);
+
+  runEventFlowTrigger({
+    eventId: reg.eventId,
+    trigger: "checkin_completed",
+    registrationId: reg.id,
+    payload: { method },
+  }).catch(console.error);
+
+  runEventFlowTrigger({
+    eventId: reg.eventId,
+    trigger: "guest_status_updated",
+    registrationId: reg.id,
+    payload: { to: "CONFIRMED", source: "checkin" },
+  }).catch(console.error);
 
   return NextResponse.json({ success: true, checkIn, reg: { ...reg, checkedInAt: now } });
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { normalizeOrgRole } from "@/lib/rbac";
 
 // POST /api/invite — accept an invite (create account if needed + join org)
 export async function POST(req: NextRequest) {
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   await prisma.$transaction([
     prisma.userOrganization.create({
-      data: { userId: user.id, organizationId: invite.organizationId, role: invite.role },
+      data: { userId: user.id, organizationId: invite.organizationId, role: normalizeOrgRole(invite.role) },
     }),
     prisma.orgInvite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } }),
   ]);

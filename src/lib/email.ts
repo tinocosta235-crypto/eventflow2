@@ -1,8 +1,10 @@
 import { Resend } from "resend";
+import { createHmac } from "crypto";
+import { parseBuilderPayload, renderBuilderContentHtml } from "@/lib/email-builder";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-const FROM_DEFAULT = process.env.EMAIL_FROM ?? "EventFlow <noreply@eventflow.app>";
+const FROM_DEFAULT = process.env.EMAIL_FROM ?? "Phorma <noreply@phorma.it>";
 
 export interface SendEmailOptions {
   to: string | string[];
@@ -13,7 +15,7 @@ export interface SendEmailOptions {
 }
 
 export async function sendEmail({ to, subject, html, from, replyTo }: SendEmailOptions) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!resend) {
     console.warn("[email] RESEND_API_KEY not set — skipping email send");
     return { id: "mock", skipped: true };
   }
@@ -27,17 +29,40 @@ export async function sendEmail({ to, subject, html, from, replyTo }: SendEmailO
   return result;
 }
 
+// Batch send up to 100 emails per call using Resend Batch API
+// Returns array of { id } results (one per email)
+export async function sendEmailBatch(
+  emails: Array<{ to: string; subject: string; html: string; from?: string }>
+): Promise<Array<{ id: string | null }>> {
+  if (!resend) {
+    console.warn("[email] RESEND_API_KEY not set — skipping batch send");
+    return emails.map(() => ({ id: null }));
+  }
+  const payload = emails.map((e) => ({
+    from: e.from ?? FROM_DEFAULT,
+    to: [e.to],
+    subject: e.subject,
+    html: e.html,
+  }));
+  const { data, error } = await resend.batch.send(payload);
+  if (error || !data) {
+    console.error("[email] Batch send error", error);
+    return emails.map(() => ({ id: null }));
+  }
+  return data.data.map((r: { id: string }) => ({ id: r.id ?? null }));
+}
+
 // ─────────────────────────────────────────────
 // HTML email templates
 // ─────────────────────────────────────────────
 
-function baseTemplate(content: string, accentColor = "#2563eb") {
+function baseTemplate(content: string, accentColor = "#2563eb", opts?: { unsubscribeUrl?: string }) {
   return `<!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EventFlow</title>
+  <title>Phorma</title>
 </head>
 <body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 20px;">
@@ -47,8 +72,8 @@ function baseTemplate(content: string, accentColor = "#2563eb") {
         <tr>
           <td style="background:linear-gradient(135deg,${accentColor},#4f46e5);padding:32px 40px;text-align:center;">
             <div style="display:inline-flex;align-items:center;gap:8px;">
-              <div style="background:rgba(255,255,255,.2);border-radius:8px;width:32px;height:32px;display:inline-block;line-height:32px;text-align:center;font-weight:900;font-size:16px;color:#fff;">E</div>
-              <span style="color:#fff;font-size:18px;font-weight:700;letter-spacing:-.5px;">EventFlow</span>
+              <div style="background:rgba(255,255,255,.2);border-radius:8px;width:32px;height:32px;display:inline-block;line-height:32px;text-align:center;font-weight:900;font-size:16px;color:#fff;">P</div>
+              <span style="color:#fff;font-size:18px;font-weight:700;letter-spacing:-.5px;">Phorma</span>
             </div>
           </td>
         </tr>
@@ -60,8 +85,9 @@ function baseTemplate(content: string, accentColor = "#2563eb") {
         <tr>
           <td style="padding:24px 40px;border-top:1px solid #f1f5f9;text-align:center;">
             <p style="margin:0;font-size:12px;color:#94a3b8;">
-              Hai ricevuto questa email perché sei iscritto a un evento gestito tramite EventFlow.<br />
-              EventFlow · Tutti i diritti riservati
+              Hai ricevuto questa email perché sei iscritto a un evento gestito tramite Phorma.<br />
+              Phorma · Tutti i diritti riservati
+              ${opts?.unsubscribeUrl ? `<br /><a href="${opts.unsubscribeUrl}" style="color:#94a3b8;font-size:11px;">Disiscriviti dalle comunicazioni di questo evento</a>` : ""}
             </p>
           </td>
         </tr>
@@ -70,6 +96,18 @@ function baseTemplate(content: string, accentColor = "#2563eb") {
   </table>
 </body>
 </html>`;
+}
+
+export function buildUnsubscribeToken(registrationId: string): string {
+  const secret = process.env.NEXTAUTH_SECRET ?? "fallback";
+  const hmac = createHmac("sha256", secret).update(registrationId).digest("hex");
+  return `${registrationId}|${hmac}`;
+}
+
+export function buildUnsubscribeUrl(registrationId: string, baseUrl?: string): string {
+  const token = buildUnsubscribeToken(registrationId);
+  const base = baseUrl ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  return `${base}/unsubscribe?token=${encodeURIComponent(token)}`;
 }
 
 function pill(text: string, bg = "#dbeafe", color = "#1d4ed8") {
@@ -186,7 +224,8 @@ export interface EventReminderData {
   eventDate: string;
   eventLocation?: string;
   onlineUrl?: string;
-  registrationCode: string;
+  registrationCode?: string;
+  unsubscribeUrl?: string;
 }
 
 export function buildEventReminderEmail(data: EventReminderData) {
@@ -211,7 +250,7 @@ export function buildEventReminderEmail(data: EventReminderData) {
   `;
   return {
     subject: `Promemoria: ${data.eventTitle} è domani!`,
-    html: baseTemplate(content, "#7c3aed"),
+    html: baseTemplate(content, "#7c3aed", { unsubscribeUrl: data.unsubscribeUrl }),
   };
 }
 
@@ -221,9 +260,28 @@ export interface CustomEmailData {
   eventTitle: string;
   subject: string;
   body: string;
+  unsubscribeUrl?: string;
 }
 
 export function buildCustomEmail(data: CustomEmailData) {
+  const resolvedSubject = data.subject
+    .replace(/\{\{firstName\}\}/g, data.firstName)
+    .replace(/\{\{lastName\}\}/g, data.lastName)
+    .replace(/\{\{eventTitle\}\}/g, data.eventTitle);
+
+  const builder = parseBuilderPayload(data.body);
+  if (builder) {
+    const content = renderBuilderContentHtml(builder, {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      eventTitle: data.eventTitle,
+    });
+    return {
+      subject: resolvedSubject,
+      html: baseTemplate(content, builder.branding.accentColor, { unsubscribeUrl: data.unsubscribeUrl }),
+    };
+  }
+
   // Simple body substitution of placeholders
   const resolvedBody = data.body
     .replace(/\{\{firstName\}\}/g, data.firstName)
@@ -231,17 +289,12 @@ export function buildCustomEmail(data: CustomEmailData) {
     .replace(/\{\{eventTitle\}\}/g, data.eventTitle)
     .replace(/\n/g, "<br />");
 
-  const resolvedSubject = data.subject
-    .replace(/\{\{firstName\}\}/g, data.firstName)
-    .replace(/\{\{lastName\}\}/g, data.lastName)
-    .replace(/\{\{eventTitle\}\}/g, data.eventTitle);
-
   const content = `
     <h2 style="margin:0 0 20px;font-size:20px;font-weight:700;color:#0f172a;">${data.eventTitle}</h2>
     <div style="font-size:15px;color:#334155;line-height:1.7;">${resolvedBody}</div>
   `;
   return {
     subject: resolvedSubject,
-    html: baseTemplate(content),
+    html: baseTemplate(content, undefined, { unsubscribeUrl: data.unsubscribeUrl }),
   };
 }

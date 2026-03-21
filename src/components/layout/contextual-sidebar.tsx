@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   ArrowLeft,
+  BarChart2,
   Building2,
   Calendar,
   ChevronRight,
@@ -14,9 +15,11 @@ import {
   FormInput,
   Hotel,
   Mail,
+  Plane,
   Plug,
   QrCode,
   Settings,
+  Tag,
   User,
   UserCog,
   Users,
@@ -60,9 +63,9 @@ function NavLink({
           <span
             className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
             style={{
-              background: "rgba(167, 139, 250, 0.12)",
+              background: "rgba(112, 96, 204, 0.10)",
               color: "var(--genesis)",
-              borderColor: "rgba(167, 139, 250, 0.24)",
+              borderColor: "rgba(112, 96, 204, 0.22)",
             }}
           >
             {badge}
@@ -71,7 +74,7 @@ function NavLink({
         {active && (
           <ChevronRight
             className="h-3 w-3 flex-shrink-0"
-            style={{ opacity: 0.5, color: "#c4beff" }}
+            style={{ opacity: 0.5, color: "var(--accent)" }}
           />
         )}
       </div>
@@ -116,13 +119,13 @@ function EventSection({
   );
 }
 
-function getEventSections(eventId: string): { label: string; items: NavItem[] }[] {
+function getEventSections(eventId: string, pendingProposals = 0): { label: string; items: NavItem[] }[] {
   return [
     {
       label: "Event Setup",
       items: [
-        { href: `/events/${eventId}`,               label: "Overview",        icon: Wrench,    tab: null,          exact: true },
-        { href: `/events/${eventId}?tab=settings`,  label: "Settings",        icon: Settings,  tab: "settings" },
+        { href: `/events/${eventId}`,               label: "Panoramica",      icon: Wrench,    tab: null,      exact: true },
+        { href: `/events/${eventId}?tab=settings`,  label: "Impostazioni",    icon: Settings,  tab: "settings" },
       ],
     },
     {
@@ -132,31 +135,47 @@ function getEventSections(eventId: string): { label: string; items: NavItem[] }[
       ],
     },
     {
-      label: "Registration",
+      label: "Registrazione",
       items: [
-        { href: `/events/${eventId}/form`,           label: "Forms & Paths",   icon: FormInput },
-        { href: `/events/${eventId}/emails`,         label: "Email Campaigns", icon: Mail },
+        { href: `/events/${eventId}?tab=groups`,     label: "Categorie Ospiti",       icon: Tag,       tab: "groups" },
+        { href: `/events/${eventId}/form`,           label: "Form di registrazione",  icon: FormInput },
+        { href: `/events/${eventId}/emails`,         label: "Comunicazioni email",    icon: Mail },
       ],
     },
     {
-      label: "Guests Management",
+      label: "Partecipanti",
       items: [
-        { href: `/events/${eventId}?tab=participants`, label: "Guests List",   icon: Users,     tab: "participants" },
-        { href: `/events/${eventId}/masterlist`,       label: "Master List",   icon: FileText },
+        { href: `/events/${eventId}/masterlist`,     label: "Gestione Partecipanti",  icon: Users },
       ],
     },
     {
-      label: "Logistics & Hospitality",
+      label: "Logistica",
       items: [
-        { href: `/events/${eventId}?tab=logistics`,  label: "Logistics",       icon: Hotel,     tab: "logistics" },
-        { href: `/events/${eventId}?tab=groups`,     label: "Guest Groups",    icon: UserCog,   tab: "groups" },
+        { href: `/events/${eventId}?tab=logistics`,  label: "Hotel",          icon: Hotel,     tab: "logistics" },
+        { href: `/events/${eventId}?tab=travel`,     label: "Viaggi",         icon: Plane,     tab: "travel" },
       ],
     },
     {
-      label: "Analytics & Check-in",
+      label: "Check-in",
       items: [
-        { href: `/events/${eventId}?tab=analytics`,  label: "Analytics",       icon: Activity,  tab: "analytics" },
-        { href: `/events/${eventId}/checkin`,         label: "Check-in",        icon: QrCode },
+        { href: `/events/${eventId}/checkin`,        label: "Check-in",       icon: QrCode },
+      ],
+    },
+    {
+      label: "Dati & AI",
+      items: [
+        {
+          href: `/events/${eventId}?tab=analytics`,
+          label: "Analytics",
+          icon: BarChart2,
+          tab: "analytics",
+        },
+        {
+          href: `/events/${eventId}/agents`,
+          label: "Agenti AI",
+          icon: Workflow,
+          badge: pendingProposals > 0 ? String(pendingProposals) : undefined,
+        },
       ],
     },
   ];
@@ -174,12 +193,24 @@ export function ContextualSidebar() {
   const eventId          = isInSpecificEvent ? rawEventId : null;
 
   const [eventTitle, setEventTitle] = useState<string | null>(null);
+  const [pendingProposals, setPendingProposals] = useState<number>(0);
+
   useEffect(() => {
     if (!eventId) return;
     let cancelled = false;
     fetch(`/api/events/${eventId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (!cancelled) setEventTitle(d?.title ?? null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    fetch(`/api/events/${eventId}/ai/proposals/count`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d?.count) setPendingProposals(d.count); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [eventId]);
@@ -213,13 +244,13 @@ export function ContextualSidebar() {
             <div
               className="mx-1 px-3 py-2.5 rounded-xl border mt-1"
               style={{
-                background:  "linear-gradient(135deg, rgba(109,98,243,0.10), rgba(109,98,243,0.05))",
-                borderColor: "rgba(109, 98, 243, 0.20)",
+                background:  "linear-gradient(135deg, rgba(112,96,204,0.10), rgba(112,96,204,0.05))",
+                borderColor: "rgba(112, 96, 204, 0.20)",
               }}
             >
               <p
                 className="text-[9px] font-bold uppercase tracking-[0.20em] mb-1"
-                style={{ color: "rgba(167, 139, 250, 0.65)" }}
+                style={{ color: "rgba(175, 169, 236, 0.65)" }}
               >
                 Evento
               </p>
@@ -232,7 +263,7 @@ export function ContextualSidebar() {
             </div>
           )}
 
-          {getEventSections(eventId).map((section) => (
+          {getEventSections(eventId, pendingProposals).map((section) => (
             <EventSection
               key={section.label}
               label={section.label}
@@ -247,12 +278,12 @@ export function ContextualSidebar() {
     if (inEvents) {
       return (
         <>
-          <SectionLabel label="Events" />
+          <SectionLabel label="Eventi" />
           {role !== "VIEWER" && (
-            <NavLink href="/events/new"  label="Create New Event"      icon={Calendar}  active={pathname === "/events/new"} />
+            <NavLink href="/events/new"  label="Crea nuovo evento"      icon={Calendar}  active={pathname === "/events/new"} />
           )}
-          <NavLink href="/events"        label="All Events"             icon={Calendar}  active={pathname === "/events"} />
-          <NavLink href="/analytics"     label="Portfolio Analytics"    icon={Activity}  active={pathname.startsWith("/analytics")} />
+          <NavLink href="/events"        label="Tutti gli eventi"        icon={Calendar}  active={pathname === "/events"} />
+          <NavLink href="/analytics"     label="Analisi Portfolio"       icon={Activity}  active={pathname.startsWith("/analytics")} />
         </>
       );
     }
@@ -260,11 +291,11 @@ export function ContextualSidebar() {
     if (inOrganization) {
       return (
         <>
-          <SectionLabel label="Organization" />
-          <NavLink href="/organization"    label="Overview"             icon={Building2} active={pathname === "/organization"} />
-          <NavLink href="/settings/org"    label="Branding"             icon={Building2} active={pathname.startsWith("/settings/org")} />
-          <NavLink href="/settings/team"   label="Users & Roles"        icon={Users}     active={pathname.startsWith("/settings/team")} />
-          <NavLink href="/hotels"          label="Hospitality Assets"   icon={Hotel}     active={pathname.startsWith("/hotels")} />
+          <SectionLabel label="Organizzazione" />
+          <NavLink href="/organization"    label="Panoramica"            icon={Building2} active={pathname === "/organization"} />
+          <NavLink href="/settings/org"    label="Brand e stile"         icon={Building2} active={pathname.startsWith("/settings/org")} />
+          <NavLink href="/settings/team"   label="Utenti e ruoli"        icon={Users}     active={pathname.startsWith("/settings/team")} />
+          <NavLink href="/hotels"          label="Strutture ricettive"   icon={Hotel}     active={pathname.startsWith("/hotels")} />
         </>
       );
     }
@@ -272,10 +303,10 @@ export function ContextualSidebar() {
     if (inAi) {
       return (
         <>
-          <SectionLabel label="AI & Integrations" />
-          <NavLink href="/ai-integrations"             label="Overview"      icon={Workflow} active={pathname === "/ai-integrations"} />
+          <SectionLabel label="AI & Integrazioni" />
+          <NavLink href="/ai-integrations"             label="Panoramica"    icon={Workflow} active={pathname === "/ai-integrations"} />
           <NavLink href="/phorma"                      label="AI Agents"     icon={Workflow} active={pathname.startsWith("/phorma")} badge="AI" />
-          <NavLink href="/hospitality/integrations"    label="Integrations"  icon={Plug}     active={pathname.startsWith("/hospitality/integrations")} />
+          <NavLink href="/hospitality/integrations"    label="Integrazioni"  icon={Plug}     active={pathname.startsWith("/hospitality/integrations")} />
         </>
       );
     }
@@ -283,10 +314,12 @@ export function ContextualSidebar() {
     if (inSettings) {
       return (
         <>
-          <SectionLabel label="Settings" />
-          <NavLink href="/settings/profile"  label="Preferences"            icon={Settings}  active={pathname.startsWith("/settings/profile") || pathname === "/settings"} />
-          <NavLink href="/settings/org"      label="Organization Settings"  icon={Building2} active={pathname.startsWith("/settings/org")} />
-          <NavLink href="/settings/team"     label="Team Access"            icon={UserCog}   active={pathname.startsWith("/settings/team")} />
+          <SectionLabel label="Impostazioni" />
+          <NavLink href="/settings/profile"         label="Preferenze"              icon={Settings}  active={pathname.startsWith("/settings/profile") || pathname === "/settings"} />
+          <NavLink href="/settings/org"             label="Impostazioni org."        icon={Building2} active={pathname.startsWith("/settings/org")} />
+          <NavLink href="/settings/team"            label="Accesso team"             icon={UserCog}   active={pathname.startsWith("/settings/team")} />
+          <NavLink href="/settings/email-templates" label="Template email"           icon={Mail}      active={pathname.startsWith("/settings/email-templates")} />
+          <NavLink href="/settings/email"          label="Mittenti email"           icon={Mail}      active={pathname.startsWith("/settings/email")} />
         </>
       );
     }
@@ -295,8 +328,8 @@ export function ContextualSidebar() {
       return (
         <>
           <SectionLabel label="Account" />
-          <NavLink href="/account"           label="My Profile"             icon={User}      active={pathname === "/account"} />
-          <NavLink href="/settings/profile"  label="Security & Preferences" icon={Settings}  active={pathname.startsWith("/settings/profile")} />
+          <NavLink href="/account"           label="Il mio profilo"          icon={User}      active={pathname === "/account"} />
+          <NavLink href="/settings/profile"  label="Sicurezza e preferenze"  icon={Settings}  active={pathname.startsWith("/settings/profile")} />
         </>
       );
     }
@@ -304,9 +337,9 @@ export function ContextualSidebar() {
     return (
       <>
         <SectionLabel label="Accesso rapido" />
-        <NavLink href="/events"         label="Events"                   icon={Calendar}  active={false} />
-        <NavLink href="/organization"   label="Organization"             icon={Building2} active={false} />
-        <NavLink href="/ai-integrations" label="AI Agents & Integrations" icon={Workflow}  active={false} />
+        <NavLink href="/events"          label="Eventi"                   icon={Calendar}  active={false} />
+        <NavLink href="/organization"    label="Organizzazione"           icon={Building2} active={false} />
+        <NavLink href="/ai-integrations" label="AI Agents & Integrazioni" icon={Workflow}  active={false} />
       </>
     );
   }
@@ -318,9 +351,10 @@ export function ContextualSidebar() {
         top:    "var(--nav-height)",
         width:  "var(--sidebar-width)",
         height: "calc(100vh - var(--nav-height))",
-        background:  "rgba(6, 8, 15, 0.80)",
+        background:  "linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 245, 255, 0.94))",
         backdropFilter: "blur(16px)",
-        borderColor: "rgba(109, 98, 243, 0.12)",
+        borderColor: "rgba(112, 96, 204, 0.12)",
+        boxShadow: "8px 0 28px rgba(26, 10, 61, 0.06)",
       }}
     >
       <div className="p-2 pb-6">{sidebarContent()}</div>

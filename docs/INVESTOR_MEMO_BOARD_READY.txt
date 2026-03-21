@@ -1,0 +1,148 @@
+EVENTFLOW - INVESTOR MEMO (BOARD READY)
+Version: 1.0
+Date: 15 March 2026
+Prepared for: Board and Investors
+
+====================================================================
+EXECUTIVE THESIS
+====================================================================
+EventFlow is building a GDPR-first, AI-native event operations platform
+for EU organizers. The strategy is to sit between low-end ticketing
+tools and high-friction enterprise suites.
+
+Core advantages:
+- Event management hierarchy and execution quality (Cvent-like structure).
+- Advanced registration flows (group-level forms, branching, invitations).
+- Event-level drag-and-drop email builder (advanced columns, branding).
+- AI agents with governance (approve-first for critical actions).
+- Travel orchestration with Amadeus as priority integration.
+
+====================================================================
+4-WEEK MVP PLAN (15 MAR 2026 - 12 APR 2026)
+====================================================================
+WEEK 1 - PLATFORM FOUNDATION
+- Multi-tenant organizations and strict data isolation.
+- RBAC: Owner, Admin, Planner, Onsite, Finance, Viewer.
+- Audit logging + GDPR baseline controls.
+- Stripe seat-based billing foundation.
+
+WEEK 2 - REGISTRATION EXCELLENCE
+- Event management section finalized for consistency and simplicity.
+- Drag-and-drop form builder per group.
+- Complex branching and invitation logic.
+- Sessions plugin activation path (capacity + waitlist).
+
+WEEK 3 - COMMUNICATIONS + INTEGRATIONS
+- Event-level email builder with advanced column layouts.
+- Branding controls (logo/typography strategy).
+- Email automations (GDPR-safe defaults, release 1 = email only).
+- CRM integrations: Salesforce and HubSpot.
+- Amadeus Phase A: flight/hotel search and pricing.
+
+WEEK 4 - ONSITE + AI GOVERNANCE + HARDENING
+- Badge printing + onsite check-in desk flow.
+- AI in approve-first mode for sensitive operations.
+- Security/performance hardening and beta rollout.
+
+====================================================================
+COMMERCIAL MODEL (RECOMMENDED)
+====================================================================
+Plan     | Monthly Price | Included Seats | Target Segment
+---------|---------------|----------------|--------------------------
+Launch   | EUR 790       | 5              | Growing organizers
+Growth   | EUR 1,490     | 10             | Structured multi-event teams
+Scale    | EUR 2,990     | 20             | Agencies / enterprise teams
+
+Additional seats:
+- Launch/Growth: EUR 89 per seat/month
+- Scale: EUR 119 per seat/month
+
+Add-ons:
+- Email usage packs
+- Onsite support package
+- Premium support / SLA
+
+Rationale:
+- Higher than SMB commodity tools; lower friction than opaque enterprise
+  contracts; sustainable for compliance and advanced product depth.
+
+====================================================================
+BASE CASE ECONOMICS (24 MONTHS)
+====================================================================
+Key outputs:
+- M12 MRR: EUR 68K - 78K
+- M12 ARR run-rate: EUR 0.82M - 0.94M
+- M24 ARR run-rate: EUR 2.8M - 3.4M
+- Gross margin target: 78% - 82%
+- Break-even target: month 18 - 24
+
+Assumptions:
+- 45 paying organizations by month 12
+- 140 paying organizations by month 24
+- Plan mix M12: 60% Launch, 30% Growth, 10% Scale
+- Land-and-expand model via seats and module adoption
+
+====================================================================
+AMADEUS PRIORITY PLAN
+====================================================================
+Priority integration: Amadeus (first external platform integration).
+
+Phase A (MVP):
+- Flight Offers Search
+- Flight Offers Price
+- Hotel Search
+
+Phase B (post-MVP):
+- Flight Create Orders
+- Hotel Booking
+
+Why phased:
+- Faster go-live within the 4-week window
+- Lower support and operational risk
+- Faster validation of travel demand inside event workflows
+
+====================================================================
+AI GOVERNANCE: APPROVE-FIRST (CLARIFICATION)
+====================================================================
+Approve-first means:
+- Agents can prepare and suggest actions autonomously.
+- Critical actions require explicit user confirmation before execution.
+- Guarded actions include:
+  - Bulk sends
+  - Participant status changes
+  - Refund and billing-impacting actions
+  - Destructive or irreversible updates
+
+====================================================================
+BOARD KPI PACK (REQUESTED)
+====================================================================
+- Number of events
+- Number of events by status
+- Upcoming events
+- Participants managed
+- Average email open rate
+- Average registration rate
+
+====================================================================
+SOURCES
+====================================================================
+Market and competitors:
+- https://www.grandviewresearch.com/industry-analysis/event-management-software-market-report
+- https://swoogo.events/pricing
+- https://www.accelevents.com/pricing
+- https://www.eventbrite.com/organizer/pricing/
+
+Commercial stack:
+- https://www.salesforce.com/sales/pricing/
+- https://ecosystem.hubspot.com/marketplace/apps/salesforce
+- https://stripe.com/billing/pricing
+
+Amadeus:
+- https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/quick-start/
+- https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/pricing/
+- https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/resources/flights/
+- https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/resources/hotels/
+
+Compliance/invoicing:
+- https://developers.fattureincloud.it/docs/api-reference
+

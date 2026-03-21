@@ -22,6 +22,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       subject: body.subject ?? template.subject,
       body: body.body ?? template.body,
       type: body.type ?? template.type,
+      groupId: body.groupId !== undefined ? (body.groupId ?? null) : template.groupId,
+      category: body.category ?? template.category,
+      includeUnsubscribe: body.includeUnsubscribe !== undefined ? Boolean(body.includeUnsubscribe) : template.includeUnsubscribe,
     },
   });
   return NextResponse.json(updated);

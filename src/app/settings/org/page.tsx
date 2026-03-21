@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/toaster";
-import { Loader2, Building2, Lock } from "lucide-react";
+import { Loader2, Building2, Lock, ShieldCheck, Download, Trash2 } from "lucide-react";
+import { hasMinRole } from "@/lib/rbac";
 
 type OrgData = {
   id: string;
@@ -18,6 +19,22 @@ type OrgData = {
   createdAt: string;
 };
 
+type GdprData = {
+  retentionDays: number;
+  lawfulBasis: string;
+  dpaSigned: boolean;
+  exportedAt: string | null;
+  deletionPolicy: string;
+  footprint: { events: number; registrations: number; templates: number; users: number };
+};
+
+type AuditEntry = {
+  at: string;
+  action: string;
+  actorId: string;
+  metadata?: Record<string, unknown>;
+};
+
 const PLAN_LABELS: Record<string, string> = {
   FREE: "Free",
   PRO: "Pro",
@@ -26,20 +43,31 @@ const PLAN_LABELS: Record<string, string> = {
 
 export default function OrgSettingsPage() {
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
+  const canManageOrg = hasMinRole(session?.user?.role, "ADMIN");
 
   const [org, setOrg] = useState<OrgData | null>(null);
+  const [gdpr, setGdpr] = useState<GdprData | null>(null);
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [name, setName] = useState("");
   const [website, setWebsite] = useState("");
   const [saving, setSaving] = useState(false);
+  const [gdprBusy, setGdprBusy] = useState<"EXPORT" | "DELETE_REQUEST" | null>(null);
 
   useEffect(() => {
-    fetch("/api/org/settings")
-      .then((r) => r.json())
-      .then((data) => {
-        setOrg(data);
-        setName(data.name ?? "");
-        setWebsite(data.website ?? "");
+    Promise.all([fetch("/api/org/settings"), fetch("/api/org/gdpr"), fetch("/api/org/audit")])
+      .then(async ([orgRes, gdprRes, auditRes]) => {
+        const orgData = await orgRes.json();
+        setOrg(orgData);
+        setName(orgData.name ?? "");
+        setWebsite(orgData.website ?? "");
+        if (gdprRes.ok) {
+          const gdprData = await gdprRes.json();
+          setGdpr(gdprData);
+        }
+        if (auditRes.ok) {
+          const auditData = await auditRes.json();
+          setAuditEntries(auditData.entries ?? []);
+        }
       });
   }, []);
 
@@ -56,6 +84,25 @@ export default function OrgSettingsPage() {
       else toast("Errore", { description: (await res.json()).error, variant: "error" });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function triggerGdpr(action: "EXPORT" | "DELETE_REQUEST") {
+    setGdprBusy(action);
+    try {
+      const res = await fetch("/api/org/gdpr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast("Errore", { description: data.error ?? "Richiesta non riuscita", variant: "error" });
+        return;
+      }
+      toast(data.message, { variant: "success" });
+    } finally {
+      setGdprBusy(null);
     }
   }
 
@@ -82,11 +129,11 @@ export default function OrgSettingsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             Dettagli organizzazione
-            {!isOwner && <Lock className="h-4 w-4 text-gray-400" />}
+            {!canManageOrg && <Lock className="h-4 w-4 text-gray-400" />}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {!isOwner && (
+          {!canManageOrg && (
             <p className="text-sm text-gray-500 mb-4">Solo i proprietari possono modificare le impostazioni dell&apos;organizzazione.</p>
           )}
           <form onSubmit={save} className="space-y-4">
@@ -97,7 +144,7 @@ export default function OrgSettingsPage() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Acme Inc."
                 required
-                disabled={!isOwner}
+                disabled={!canManageOrg}
               />
             </div>
             <div>
@@ -107,10 +154,10 @@ export default function OrgSettingsPage() {
                 onChange={(e) => setWebsite(e.target.value)}
                 placeholder="https://example.com"
                 type="url"
-                disabled={!isOwner}
+                disabled={!canManageOrg}
               />
             </div>
-            {isOwner && (
+            {canManageOrg && (
               <Button type="submit" disabled={saving} className="gap-2">
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 Salva modifiche
@@ -138,6 +185,88 @@ export default function OrgSettingsPage() {
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-gray-100">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" />
+            GDPR Baseline
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {gdpr ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-gray-100 p-3">
+                  <p className="text-xs text-gray-500">Eventi</p>
+                  <p className="text-lg font-semibold">{gdpr.footprint.events}</p>
+                </div>
+                <div className="rounded-lg border border-gray-100 p-3">
+                  <p className="text-xs text-gray-500">Partecipanti</p>
+                  <p className="text-lg font-semibold">{gdpr.footprint.registrations}</p>
+                </div>
+                <div className="rounded-lg border border-gray-100 p-3">
+                  <p className="text-xs text-gray-500">Template email</p>
+                  <p className="text-lg font-semibold">{gdpr.footprint.templates}</p>
+                </div>
+                <div className="rounded-lg border border-gray-100 p-3">
+                  <p className="text-xs text-gray-500">Utenti team</p>
+                  <p className="text-lg font-semibold">{gdpr.footprint.users}</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500">
+                Retention: {gdpr.retentionDays} giorni · Base giuridica: {gdpr.lawfulBasis}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">Caricamento baseline GDPR...</p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => triggerGdpr("EXPORT")}
+              disabled={!canManageOrg || gdprBusy !== null}
+              className="gap-2"
+            >
+              {gdprBusy === "EXPORT" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Richiedi export dati
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => triggerGdpr("DELETE_REQUEST")}
+              disabled={!canManageOrg || gdprBusy !== null}
+              className="gap-2"
+            >
+              {gdprBusy === "DELETE_REQUEST" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Richiedi cancellazione
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-gray-100">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Audit Trail</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {auditEntries.length === 0 ? (
+            <p className="text-sm text-gray-500">Nessuna azione tracciata al momento.</p>
+          ) : (
+            <div className="space-y-2">
+              {auditEntries.map((entry, idx) => (
+                <div key={`${entry.at}-${idx}`} className="rounded-lg border border-gray-100 px-3 py-2">
+                  <p className="text-sm font-medium">{entry.action}</p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(entry.at).toLocaleString("it-IT")} · actor {entry.actorId}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

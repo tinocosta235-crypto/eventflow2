@@ -22,7 +22,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireOrg("MEMBER")
+  const auth = await requireOrg("PLANNER")
   if ("error" in auth) return auth.error
   const { id } = await params
 

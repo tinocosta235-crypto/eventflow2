@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireMember, requireOrg } from "@/lib/auth-helpers";
 import { generateCode } from "@/lib/utils";
+import { runEventFlowTrigger } from "@/lib/event-flow-runtime";
 
 export async function GET(req: NextRequest) {
   const result = await requireOrg("VIEWER");
@@ -76,6 +77,20 @@ export async function POST(req: NextRequest) {
     if (resolvedStatus !== "WAITLIST") {
       await prisma.event.update({ where: { id: eventId }, data: { currentCount: { increment: 1 } } });
     }
+
+    runEventFlowTrigger({
+      eventId,
+      trigger: "guest_imported",
+      registrationId: reg.id,
+      payload: { source: "manual" },
+    }).catch(console.error);
+
+    runEventFlowTrigger({
+      eventId,
+      trigger: "guest_status_updated",
+      registrationId: reg.id,
+      payload: { status: resolvedStatus },
+    }).catch(console.error);
 
     return NextResponse.json({ ...reg, autoWaitlist: resolvedStatus === "WAITLIST" }, { status: 201 });
   } catch (e: unknown) {

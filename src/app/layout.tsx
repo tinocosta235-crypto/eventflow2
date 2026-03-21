@@ -1,32 +1,43 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Bricolage_Grotesque, Instrument_Serif } from "next/font/google";
+import { DM_Sans, DM_Serif_Display, DM_Mono } from "next/font/google";
 
-const bricolage = Bricolage_Grotesque({
+const dmSans = DM_Sans({
   subsets: ["latin"],
-  variable: "--font-bricolage",
-  weight: ["200", "300", "400", "500", "600", "700", "800"],
+  variable: "--font-dm-sans",
+  weight: ["300", "400", "500", "700"],
+  style: ["normal", "italic"],
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
+const dmSerifDisplay = DM_Serif_Display({
   subsets: ["latin"],
-  variable: "--font-instrument",
+  variable: "--font-dm-serif",
   style: ["normal", "italic"],
   weight: "400",
   display: "swap",
 });
 
+const dmMono = DM_Mono({
+  subsets: ["latin"],
+  variable: "--font-dm-mono",
+  weight: ["400", "500"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Phorma — Gestione Eventi",
-  description: "La piattaforma italiana per la gestione professionale degli eventi",
+  title: "Phorma — La segreteria eventi è diventata intelligente.",
+  description: "La prima piattaforma agentica per la segreteria organizzativa eventi.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="it" className={`${bricolage.variable} ${instrumentSerif.variable}`}>
-      <body className={bricolage.className}>
+    <html
+      lang="it"
+      className={`${dmSans.variable} ${dmSerifDisplay.variable} ${dmMono.variable}`}
+    >
+      <body className={dmSans.className}>
         <Providers>{children}</Providers>
       </body>
     </html>

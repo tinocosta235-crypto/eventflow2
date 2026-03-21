@@ -159,7 +159,7 @@ export function AIEmailScorer({ eventId, eventTitle }: { eventId: string; eventT
           <CardTitle className="text-sm text-blue-900">Email Quality Scorer</CardTitle>
         </div>
         <p className="text-xs text-blue-700 mt-1">
-          Incolla un'email e ricevi un'analisi AI con score e suggerimenti di riscrittura
+          Incolla un&apos;email e ricevi un&apos;analisi AI con score e suggerimenti di riscrittura
         </p>
       </CardHeader>
       <CardContent className="space-y-3">

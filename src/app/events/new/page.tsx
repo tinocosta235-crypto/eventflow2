@@ -248,7 +248,7 @@ function EntryMode({ onSelect }: { onSelect: (mode: CreationMode) => void }) {
           </div>
           <div>
             <p className="font-semibold text-gray-900">Guidami passo passo</p>
-            <p className="text-sm text-gray-500 mt-0.5">Rispondo a poche domande e creo l'evento in 2 minuti</p>
+            <p className="text-sm text-gray-500 mt-0.5">Rispondo a poche domande e creo l&apos;evento in 2 minuti</p>
           </div>
           <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-blue-500 ml-auto transition-colors" />
         </button>
@@ -262,7 +262,7 @@ function EntryMode({ onSelect }: { onSelect: (mode: CreationMode) => void }) {
           </div>
           <div>
             <p className="font-semibold text-gray-900">Genera con AI</p>
-            <p className="text-sm text-gray-500 mt-0.5">Descrivo l'evento in una frase e l'AI compila tutto</p>
+            <p className="text-sm text-gray-500 mt-0.5">Descrivo l&apos;evento in una frase e l&apos;AI compila tutto</p>
           </div>
           <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-purple-500 ml-auto transition-colors" />
         </button>
@@ -350,7 +350,7 @@ function AIMode({ onGenerated, onBack }: { onGenerated: (data: WizardData) => vo
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Descrivi il tuo evento</h2>
         </div>
-        <p className="text-gray-500 mb-8">L'AI genera tutti i dettagli. Potrai modificarli nel wizard prima di creare l'evento.</p>
+        <p className="text-gray-500 mb-8">L&apos;AI genera tutti i dettagli. Potrai modificarli nel wizard prima di creare l&apos;evento.</p>
 
         <div className="relative">
           <Textarea
@@ -386,7 +386,7 @@ function AIMode({ onGenerated, onBack }: { onGenerated: (data: WizardData) => vo
                 onClick={() => setPrompt(ex)}
                 className="w-full text-left text-sm text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 transition-colors"
               >
-                "{ex}"
+                &quot;{ex}&quot;
               </button>
             ))}
           </div>
@@ -439,7 +439,7 @@ function DuplicateMode({ onDuplicated, onBack }: { onDuplicated: (data: WizardDa
           <ArrowLeft className="h-4 w-4" /> Torna indietro
         </button>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Duplica un evento passato</h2>
-        <p className="text-gray-500 mb-6">Scegli l'evento da cui partire. Potrai modificare tutti i dettagli nel wizard.</p>
+        <p className="text-gray-500 mb-6">Scegli l&apos;evento da cui partire. Potrai modificare tutti i dettagli nel wizard.</p>
 
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
@@ -653,7 +653,7 @@ export default function NewEventPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Chi è il cliente? <span className="text-red-500">*</span>
                 </label>
-                <Hint>Il nome dell'azienda o persona per cui organizzi l'evento.</Hint>
+                <Hint>Il nome dell&apos;azienda o persona per cui organizzi l&apos;evento.</Hint>
                 <Input
                   placeholder="Es. Acme S.p.A."
                   value={data.clientName}
@@ -679,7 +679,7 @@ export default function NewEventPage() {
           {step === 2 && (
             <div className="space-y-5">
               <div>
-                <Question>Chi organizza l'evento?</Question>
+                <Question>Chi organizza l&apos;evento?</Question>
                 <Hint>Il referente principale della segreteria organizzativa.</Hint>
               </div>
               <div>
@@ -892,7 +892,7 @@ export default function NewEventPage() {
                 </Button>
               </div>
               <p className="text-xs text-gray-400">
-                Puoi aggiungere altri gruppi anche dopo aver creato l'evento.
+                Puoi aggiungere altri gruppi anche dopo aver creato l&apos;evento.
               </p>
             </div>
           )}
@@ -914,7 +914,7 @@ export default function NewEventPage() {
               ))}
               {data.plugins.length === 0 && (
                 <p className="text-xs text-center text-gray-400 py-2">
-                  Puoi anche non attivare nulla ora e farlo dopo dalla sezione Funzionalità dell'evento.
+                  Puoi anche non attivare nulla ora e farlo dopo dalla sezione Funzionalita&apos; dell&apos;evento.
                 </p>
               )}
             </div>

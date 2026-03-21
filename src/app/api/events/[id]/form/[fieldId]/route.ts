@@ -22,6 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       placeholder: body.placeholder !== undefined ? (body.placeholder || null) : field.placeholder,
       required: body.required ?? field.required,
       options: body.options !== undefined ? (body.options ? JSON.stringify(body.options) : null) : field.options,
+      conditions: body.conditions !== undefined ? (body.conditions ? JSON.stringify(body.conditions) : null) : field.conditions,
     },
   });
   return NextResponse.json(updated);

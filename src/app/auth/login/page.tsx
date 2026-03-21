@@ -14,8 +14,8 @@ function PhormaMark({ size = 36 }: { size?: number }) {
       <circle cx="18" cy="8"  r="2"   fill="rgba(255,255,255,0.55)" />
       <defs>
         <linearGradient id="lm-grad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stopColor="#7c72f5" />
-          <stop offset="100%" stopColor="#4a3fbf" />
+          <stop offset="0%"   stopColor="#7060CC" />
+          <stop offset="100%" stopColor="#5A4AB0" />
         </linearGradient>
       </defs>
     </svg>
@@ -46,14 +46,14 @@ export default function LoginPage() {
   return (
     <div
       className="min-h-screen flex"
-      style={{ background: "var(--background)", fontFamily: "var(--font-bricolage, 'Bricolage Grotesque'), system-ui, sans-serif" }}
+      style={{ background: "var(--background)" }}
     >
       {/* ── Left panel ─────────────────────────────────────────── */}
       <div
         className="hidden lg:flex lg:w-[52%] flex-col justify-between p-14 relative overflow-hidden"
         style={{
-          background: "linear-gradient(160deg, #0d1127 0%, #0a0e20 55%, #06080f 100%)",
-          borderRight: "1px solid rgba(109, 98, 243, 0.12)",
+          background: "linear-gradient(160deg, #0D0522 0%, #1A0A3D 55%, #0D0522 100%)",
+          borderRight: "1px solid rgba(112, 96, 204, 0.16)",
         }}
       >
         {/* Ambient glow */}
@@ -61,15 +61,15 @@ export default function LoginPage() {
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              "radial-gradient(ellipse 70% 55% at 20% 10%, rgba(109,98,243,0.18) 0%, transparent 60%), " +
-              "radial-gradient(ellipse 50% 40% at 80% 90%, rgba(167,139,250,0.10) 0%, transparent 55%)",
+              "radial-gradient(ellipse 70% 55% at 20% 10%, rgba(112,96,204,0.22) 0%, transparent 60%), " +
+              "radial-gradient(ellipse 50% 40% at 80% 90%, rgba(175,169,236,0.12) 0%, transparent 55%)",
           }}
         />
         {/* Dot grid */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: "radial-gradient(circle, rgba(109,98,243,0.13) 1px, transparent 1px)",
+            backgroundImage: "radial-gradient(circle, rgba(112,96,204,0.16) 1px, transparent 1px)",
             backgroundSize: "28px 28px",
             maskImage: "radial-gradient(ellipse 80% 60% at 40% 30%, black 0%, transparent 85%)",
           }}
@@ -93,15 +93,15 @@ export default function LoginPage() {
             <h1
               className="text-[2.6rem] font-bold leading-[1.12] mb-5"
               style={{
-                color: "#edeef6",
-                fontFamily: "var(--font-instrument, 'Instrument Serif'), Georgia, serif",
+                color: "#F7F5FF",
+                fontFamily: "var(--font-dm-serif, 'DM Serif Display'), Georgia, serif",
                 fontStyle: "italic",
               }}
             >
               Dove ogni evento<br />prende forma.
             </h1>
             <p className="text-base leading-relaxed max-w-sm" style={{ color: "rgba(237,238,246,0.55)" }}>
-              Orchestrazione intelligente di eventi, agenti AI, flussi automatizzati e logistica — tutto in un'unica piattaforma.
+              Orchestrazione intelligente di eventi, agenti AI, flussi automatizzati e logistica — tutto in un&apos;unica piattaforma.
             </p>
           </div>
 
@@ -112,9 +112,9 @@ export default function LoginPage() {
                 key={f}
                 className="text-xs px-3 py-1.5 rounded-full border"
                 style={{
-                  background: "rgba(109,98,243,0.10)",
-                  borderColor: "rgba(109,98,243,0.24)",
-                  color: "#c4beff",
+                  background: "rgba(112,96,204,0.12)",
+                  borderColor: "rgba(112,96,204,0.26)",
+                  color: "#AFA9EC",
                   fontWeight: 500,
                 }}
               >
@@ -139,7 +139,7 @@ export default function LoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2.5 mb-10">
             <PhormaMark size={30} />
-            <span className="font-bold text-lg" style={{ color: "#edeef6" }}>Phorma</span>
+            <span className="font-bold text-lg" style={{ color: "var(--text-primary)" }}>Phorma</span>
           </div>
 
           <div className="mb-8">
@@ -176,13 +176,13 @@ export default function LoginPage() {
                   required
                   className="w-full pl-9 pr-4 h-10 rounded-lg text-sm outline-none transition-all"
                   style={{
-                    background:   "rgba(14,21,38,0.90)",
-                    border:       "1px solid rgba(109,98,243,0.22)",
+                    background:   "#ffffff",
+                    border:       "1px solid rgba(112,96,204,0.22)",
                     color:        "var(--text-primary)",
                     fontFamily:   "inherit",
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = "rgba(139,128,255,0.55)")}
-                  onBlur={(e)  => (e.target.style.borderColor = "rgba(109,98,243,0.22)")}
+                  onFocus={(e) => (e.target.style.borderColor = "rgba(112,96,204,0.55)")}
+                  onBlur={(e)  => (e.target.style.borderColor = "rgba(112,96,204,0.22)")}
                 />
               </div>
             </div>
@@ -208,13 +208,13 @@ export default function LoginPage() {
                   required
                   className="w-full pl-9 pr-4 h-10 rounded-lg text-sm outline-none transition-all"
                   style={{
-                    background: "rgba(14,21,38,0.90)",
-                    border:     "1px solid rgba(109,98,243,0.22)",
+                    background: "#ffffff",
+                    border:     "1px solid rgba(112,96,204,0.22)",
                     color:      "var(--text-primary)",
                     fontFamily: "inherit",
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = "rgba(139,128,255,0.55)")}
-                  onBlur={(e)  => (e.target.style.borderColor = "rgba(109,98,243,0.22)")}
+                  onFocus={(e) => (e.target.style.borderColor = "rgba(112,96,204,0.55)")}
+                  onBlur={(e)  => (e.target.style.borderColor = "rgba(112,96,204,0.22)")}
                 />
               </div>
             </div>
@@ -239,10 +239,10 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full h-10 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold transition-all disabled:opacity-60"
               style={{
-                background:   "linear-gradient(135deg, #6d62f3, #5548d9)",
+                background:   "#7060CC",
                 color:        "#ffffff",
-                border:       "1px solid rgba(139,128,255,0.28)",
-                boxShadow:    "0 0 20px rgba(109,98,243,0.25)",
+                border:       "1px solid rgba(112,96,204,0.28)",
+                boxShadow:    "0 0 20px rgba(112,96,204,0.25)",
                 fontFamily:   "inherit",
               }}
             >
@@ -270,13 +270,13 @@ export default function LoginPage() {
           <div
             className="mt-6 p-4 rounded-xl border"
             style={{
-              background:  "rgba(14,21,38,0.70)",
-              borderColor: "rgba(109,98,243,0.16)",
+              background:  "var(--depth-3)",
+              borderColor: "var(--border)",
             }}
           >
             <p
               className="text-[10px] font-bold uppercase tracking-[0.18em] mb-2"
-              style={{ color: "rgba(167,139,250,0.65)" }}
+              style={{ color: "var(--text-tertiary)" }}
             >
               Account demo
             </p>

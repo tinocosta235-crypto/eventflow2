@@ -46,7 +46,6 @@ interface EventItem {
 }
 
 type SortDir = "asc" | "desc"
-type ColId = keyof Registration | "fullName" | "event"
 type View = "table" | "masterlist"
 
 // ── Column definitions ────────────────────────────────────────────────────────
@@ -150,7 +149,7 @@ export default function ParticipantsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("ALL")
-  const [paymentFilter, setPaymentFilter] = useState("ALL")
+  const [paymentFilter] = useState("ALL")
   const [checkinFilter, setCheckinFilter] = useState("ALL")
   const [eventFilter, setEventFilter] = useState("ALL")
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -232,7 +231,12 @@ export default function ParticipantsPage() {
   }
 
   function toggleOne(id: string) {
-    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelected((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
   }
 
   // ── Bulk actions ──────────────────────────────────────────────────────────
@@ -571,7 +575,8 @@ export default function ParticipantsPage() {
                           onClick={() => {
                             setVisibleCols((prev) => {
                               const n = new Set(prev)
-                              n.has(col.id) ? n.delete(col.id) : n.add(col.id)
+                              if (n.has(col.id)) n.delete(col.id)
+                              else n.add(col.id)
                               return n
                             })
                           }}

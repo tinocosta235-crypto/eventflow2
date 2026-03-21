@@ -9,6 +9,7 @@ import { toast } from "@/components/ui/toaster";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { hasMinRole } from "@/lib/rbac";
 import {
   Loader2, UserPlus, Copy, Check, Trash2, ChevronDown, Clock, Mail,
 } from "lucide-react";
@@ -25,11 +26,21 @@ type Invite = {
   expiresAt: string;
 };
 
-const ROLES = ["OWNER", "MEMBER", "VIEWER"] as const;
-const ROLE_LABELS: Record<string, string> = { OWNER: "Proprietario", MEMBER: "Membro", VIEWER: "Visualizzatore" };
+const ROLES = ["OWNER", "ADMIN", "PLANNER", "ONSITE", "FINANCE", "VIEWER"] as const;
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: "Owner",
+  ADMIN: "Admin",
+  PLANNER: "Planner",
+  ONSITE: "Onsite",
+  FINANCE: "Finance",
+  VIEWER: "Viewer",
+};
 const ROLE_COLORS: Record<string, string> = {
   OWNER: "bg-purple-100 text-purple-700",
-  MEMBER: "bg-blue-100 text-blue-700",
+  ADMIN: "bg-indigo-100 text-indigo-700",
+  PLANNER: "bg-blue-100 text-blue-700",
+  ONSITE: "bg-teal-100 text-teal-700",
+  FINANCE: "bg-emerald-100 text-emerald-700",
   VIEWER: "bg-gray-100 text-gray-600",
 };
 
@@ -40,7 +51,7 @@ function initials(name: string | null, email: string) {
 
 export default function TeamPage() {
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
+  const canManageTeam = hasMinRole(session?.user?.role, "ADMIN");
   const currentUserId = session?.user?.id;
 
   const [members, setMembers] = useState<Member[]>([]);
@@ -50,7 +61,7 @@ export default function TeamPage() {
   // Invite modal
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"OWNER" | "MEMBER" | "VIEWER">("MEMBER");
+  const [inviteRole, setInviteRole] = useState<"OWNER" | "ADMIN" | "PLANNER" | "ONSITE" | "FINANCE" | "VIEWER">("PLANNER");
   const [inviting, setInviting] = useState(false);
   const [inviteLink, setInviteLink] = useState("");
   const [copied, setCopied] = useState(false);
@@ -144,7 +155,7 @@ export default function TeamPage() {
           <h2 className="text-lg font-bold text-gray-900">Team</h2>
           <p className="text-sm text-gray-500">{members.length} membro{members.length !== 1 ? "i" : ""}</p>
         </div>
-        {isOwner && (
+        {canManageTeam && (
           <Button onClick={() => { setShowInvite(true); setInviteLink(""); setInviteEmail(""); }} className="gap-2">
             <UserPlus className="h-4 w-4" />
             Invita membro
@@ -170,7 +181,7 @@ export default function TeamPage() {
                 <p className="text-xs text-gray-400 truncate">{m.user.email}</p>
               </div>
               <div className="flex items-center gap-2">
-                {isOwner && m.user.id !== currentUserId ? (
+                {canManageTeam && m.user.id !== currentUserId ? (
                   <div className="relative">
                     <select
                       value={m.role}
@@ -190,7 +201,7 @@ export default function TeamPage() {
                     {ROLE_LABELS[m.role]}
                   </span>
                 )}
-                {isOwner && m.user.id !== currentUserId && (
+                {canManageTeam && m.user.id !== currentUserId && (
                   <button
                     onClick={() => setRemoveTarget(m)}
                     className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -230,7 +241,7 @@ export default function TeamPage() {
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${ROLE_COLORS[inv.role]}`}>
                   {ROLE_LABELS[inv.role]}
                 </span>
-                {isOwner && (
+                {canManageTeam && (
                   <button
                     onClick={() => revokeInvite(inv.id)}
                     className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -273,8 +284,11 @@ export default function TeamPage() {
                   {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
                 </select>
                 <p className="text-xs text-gray-400 mt-1">
-                  {inviteRole === "OWNER" && "Accesso completo inclusa gestione team e impostazioni"}
-                  {inviteRole === "MEMBER" && "Può gestire eventi e partecipanti, non le impostazioni org"}
+                  {inviteRole === "OWNER" && "Accesso completo piattaforma e governance"}
+                  {inviteRole === "ADMIN" && "Gestisce team, impostazioni org, eventi e operazioni"}
+                  {inviteRole === "PLANNER" && "Gestisce eventi, partecipanti, form, email e analytics"}
+                  {inviteRole === "ONSITE" && "Operatività check-in e badge durante evento"}
+                  {inviteRole === "FINANCE" && "Visibilità economica/reportistica e billing operations"}
                   {inviteRole === "VIEWER" && "Accesso in sola lettura"}
                 </p>
               </div>

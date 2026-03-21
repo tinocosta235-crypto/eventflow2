@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireMember, requireOwner } from "@/lib/auth-helpers";
+import { runEventFlowTrigger } from "@/lib/event-flow-runtime";
 
 export async function POST(req: NextRequest) {
   const { ids, action, eventId } = await req.json();
@@ -21,12 +22,34 @@ export async function POST(req: NextRequest) {
 
   if (action === "confirm") {
     await prisma.registration.updateMany({ where: { id: { in: validIds } }, data: { status: "CONFIRMED" } });
+    const sample = regs.slice(0, 100);
+    await Promise.all(
+      sample.map((r) =>
+        runEventFlowTrigger({
+          eventId: r.eventId,
+          trigger: "guest_status_updated",
+          registrationId: r.id,
+          payload: { to: "CONFIRMED", bulk: true },
+        }).catch(() => null)
+      )
+    );
     return NextResponse.json({ updated: validIds.length });
   }
 
   if (action === "cancel") {
     await prisma.registration.updateMany({ where: { id: { in: validIds } }, data: { status: "CANCELLED" } });
     if (eventId) await promoteFromWaitlist(eventId, validIds.length);
+    const sample = regs.slice(0, 100);
+    await Promise.all(
+      sample.map((r) =>
+        runEventFlowTrigger({
+          eventId: r.eventId,
+          trigger: "guest_status_updated",
+          registrationId: r.id,
+          payload: { to: "CANCELLED", bulk: true },
+        }).catch(() => null)
+      )
+    );
     return NextResponse.json({ updated: validIds.length });
   }
 
@@ -46,6 +69,17 @@ export async function POST(req: NextRequest) {
 
   if (action === "pending") {
     await prisma.registration.updateMany({ where: { id: { in: validIds } }, data: { status: "PENDING" } });
+    const sample = regs.slice(0, 100);
+    await Promise.all(
+      sample.map((r) =>
+        runEventFlowTrigger({
+          eventId: r.eventId,
+          trigger: "guest_status_updated",
+          registrationId: r.id,
+          payload: { to: "PENDING", bulk: true },
+        }).catch(() => null)
+      )
+    );
     return NextResponse.json({ updated: validIds.length });
   }
 

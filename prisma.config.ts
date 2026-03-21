@@ -8,6 +8,7 @@ export default defineConfig({
     seed: "npx ts-node --project tsconfig.json -e \"require('./prisma/seed.ts')\"",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // DIRECT_URL for migrations (bypasses PgBouncer), DATABASE_URL for runtime
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });

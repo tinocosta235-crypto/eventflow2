@@ -1,0 +1,54 @@
+# Docker Compose — Paperclip come microservizio accanto a Phorma
+# Avvio: docker compose -f docker-compose.paperclip.yml up -d
+#
+# Prerequisiti:
+#   1. Clonare Paperclip: git clone https://github.com/paperclipai/paperclip.git
+#   2. Impostare PAPERCLIP_DATABASE_URL nel .env (DB separato da Phorma/Supabase)
+#   3. Impostare PAPERCLIP_API_KEY (board API key) e PAPERCLIP_INTERNAL_KEY (.env Phorma)
+#
+# Env vars richieste nel .env Phorma:
+#   PAPERCLIP_URL=http://localhost:3100
+#   PAPERCLIP_API_KEY=<board-api-key>
+#   PAPERCLIP_INTERNAL_KEY=<shared-secret>
+
+services:
+  paperclip-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: paperclip
+      POSTGRES_PASSWORD: ${PAPERCLIP_DB_PASSWORD:-paperclip}
+      POSTGRES_DB: paperclip
+    volumes:
+      - paperclip-pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"   # porta 5433 per non collidere con altri Postgres locali
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperclip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  paperclip:
+    build:
+      context: ../paperclip
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    environment:
+      DATABASE_URL: postgres://paperclip:${PAPERCLIP_DB_PASSWORD:-paperclip}@paperclip-db:5432/paperclip
+      PORT: 3100
+      SERVE_UI: "true"
+      # Imposta in .env:
+      # PAPERCLIP_PUBLIC_URL: http://localhost:3100
+      # PAPERCLIP_DEPLOYMENT_MODE: authenticated
+    depends_on:
+      paperclip-db:
+        condition: service_healthy
+    volumes:
+      - paperclip-data:/data
+
+volumes:
+  paperclip-pgdata:
+  paperclip-data:

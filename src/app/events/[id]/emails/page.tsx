@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { EmailsClient } from "./EmailsClient";
+import { ensureDefaultEventTemplates } from "@/lib/email-template-defaults";
 
 export const dynamic = "force-dynamic";
 
@@ -17,12 +18,19 @@ export default async function EventEmailsPage({ params }: { params: Promise<{ id
   });
   if (!event) notFound();
 
-  const [templates, stats] = await Promise.all([
+  await ensureDefaultEventTemplates(id, event.title);
+
+  const [templates, stats, groups] = await Promise.all([
     prisma.emailTemplate.findMany({ where: { eventId: id }, orderBy: { createdAt: "desc" } }),
     prisma.registration.groupBy({
       by: ["status"],
       where: { eventId: id },
       _count: true,
+    }),
+    prisma.eventGroup.findMany({
+      where: { eventId: id },
+      orderBy: { order: "asc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -37,6 +45,7 @@ export default async function EventEmailsPage({ params }: { params: Promise<{ id
       eventTitle={event.title}
       templates={templates}
       statusCounts={statusCounts}
+      groups={groups}
     />
   );
 }

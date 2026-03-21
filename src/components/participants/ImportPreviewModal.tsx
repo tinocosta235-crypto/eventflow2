@@ -37,7 +37,6 @@ export function ImportPreviewModal({ file, eventId, onClose, onSuccess }: Props)
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [parsing, setParsing] = useState(true);
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
 
   useEffect(() => {
     const reader = new FileReader();
@@ -88,7 +87,6 @@ export function ImportPreviewModal({ file, eventId, onClose, onSuccess }: Props)
       const res = await fetch("/api/participants/import-file", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setResult(data);
       toast(`Importati ${data.imported} partecipanti`, { variant: "success" });
       onSuccess();
     } catch (e: unknown) {

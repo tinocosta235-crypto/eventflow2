@@ -1,13 +1,8 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { hasMinRole, normalizeOrgRole } from "@/lib/rbac";
 
-export type OrgRole = "OWNER" | "MEMBER" | "VIEWER";
-
-const ROLE_RANK: Record<string, number> = { VIEWER: 0, MEMBER: 1, OWNER: 2 };
-
-function hasMinRole(userRole: string, minRole: OrgRole) {
-  return (ROLE_RANK[userRole] ?? -1) >= (ROLE_RANK[minRole] ?? 0);
-}
+export type OrgRole = "OWNER" | "ADMIN" | "PLANNER" | "ONSITE" | "FINANCE" | "VIEWER";
 
 /**
  * Call at the start of any API route that requires org membership.
@@ -18,7 +13,7 @@ function hasMinRole(userRole: string, minRole: OrgRole) {
 export async function requireOrg(minRole: OrgRole = "VIEWER") {
   const session = await auth();
   const orgId = session?.user?.organizationId;
-  const role = session?.user?.role ?? "";
+  const role = normalizeOrgRole(session?.user?.role);
   const userId = session?.user?.id ?? "";
 
   if (!orgId || !userId) {
@@ -42,7 +37,17 @@ export async function requireOwner() {
   return requireOrg("OWNER");
 }
 
-/** Shorthand for write-capable routes (MEMBER+) */
+/** Shorthand for org admin routes (OWNER/ADMIN) */
+export async function requireOrgAdmin() {
+  return requireOrg("ADMIN");
+}
+
+/** Shorthand for write-capable event routes (PLANNER+) */
+export async function requirePlanner() {
+  return requireOrg("PLANNER");
+}
+
+/** Backward-compatible alias for previous MEMBER semantics */
 export async function requireMember() {
-  return requireOrg("MEMBER");
+  return requirePlanner();
 }

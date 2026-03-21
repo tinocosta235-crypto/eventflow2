@@ -15,10 +15,39 @@ model Organization {
   plan      String   @default("FREE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  users   UserOrganization[]
-  events  Event[]
-  invites OrgInvite[]
-  hotels  Hotel[]
+  users         UserOrganization[]
+  events        Event[]
+  invites       OrgInvite[]
+  hotels        Hotel[]
+  emailTemplates OrgEmailTemplate[]
+  emailSenders   OrgEmailSender[]
+}
+
+model OrgEmailTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  type           String   // "HEADER" | "FOOTER"
+  payload        String   // JSON EmailBuilderPayload (solo blocks + branding)
+  updatedAt      DateTime @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  @@unique([organizationId, type])
+}
+
+model OrgEmailSender {
+  id             String   @id @default(cuid())
+  organizationId String
+  displayName    String
+  email          String
+  domain         String
+  resendDomainId String?
+  status         String   @default("PENDING")
+  // PENDING | VERIFIED | FAILED
+  dnsRecords     String?  // JSON: Resend DNS records array
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  @@unique([organizationId, email])
 }
 
 model User {
@@ -133,6 +162,11 @@ model Event {
   clientName       String?
   wizardCompleted  Boolean  @default(false)
 
+  // Paperclip integration — company per governance agenti
+  paperclipCompanyId String?
+  // JSON: { flow_consultant, report, email_analyst, form_audit } → agentId Paperclip
+  paperclipAgentIds  String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -148,6 +182,12 @@ model Event {
   plugins        EventPlugin[]
   allotments     HotelAllotment[]
   travelEntries  TravelEntry[]
+  travelResources TravelResource[]
+  travelRoutes    TravelRoute[]
+  agentProposals   AgentProposal[]
+  agentActionLogs  AgentActionLog[]
+  agentContextCache AgentContextCache?
+  emailTrackingEvents EmailTrackingEvent[]
 }
 
 model EventGroup {
@@ -158,8 +198,9 @@ model EventGroup {
   color       String   @default("blue")
   order       Int      @default(0)
   createdAt   DateTime @default(now())
-  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  registrations Registration[]
+  event            Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations    Registration[]
+  routeAssignments RouteGroupAssignment[]
 }
 
 model EventPlugin {
@@ -191,6 +232,7 @@ model Registration {
   paymentStatus    String    @default("FREE")
   ticketPrice      Float?
   checkedInAt      DateTime?
+  unsubscribedAt   DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   event           Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -199,6 +241,7 @@ model Registration {
   checkIn         CheckIn?
   roomAssignments RoomAssignment[]
   travelEntries   TravelEntry[]
+  flowNodeInstances FlowNodeInstance[]
   @@unique([eventId, email])
 }
 
@@ -228,15 +271,18 @@ model RegistrationField {
 }
 
 model EmailTemplate {
-  id        String   @id @default(cuid())
-  eventId   String?
-  name      String
-  subject   String
-  body      String
-  type      String   @default("CUSTOM")
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  eventId            String?
+  name               String
+  subject            String
+  body               String
+  type               String   @default("CUSTOM")
+  isDefault          Boolean  @default(false)
+  groupId            String?  // null = visible to all groups
+  category           String   @default("manual")  // "pre_event" | "reminder" | "post_event" | "manual"
+  includeUnsubscribe Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
   event Event? @relation(fields: [eventId], references: [id], onDelete: SetNull)
 }
 
@@ -261,6 +307,53 @@ model OrgInvite {
   createdAt      DateTime @default(now())
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   @@unique([organizationId, email])
+}
+
+// Flow Node Instances & Manual Tasks
+model FlowNodeInstance {
+  id             String    @id @default(cuid())
+  eventId        String
+  nodeId         String
+  registrationId String
+  status         String    @default("PENDING")
+  // PENDING | ACTIVE | COMPLETED | BLOCKED | SKIPPED | ERROR
+  startedAt      DateTime?
+  completedAt    DateTime?
+  blockedReason  String?
+  outputBranch   String?
+  metadata       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  manualTasks    ManualActionTask[]
+
+  @@unique([nodeId, registrationId])
+  @@index([eventId, nodeId])
+  @@index([registrationId])
+}
+
+model ManualActionTask {
+  id             String    @id @default(cuid())
+  eventId        String
+  nodeInstanceId String
+  registrationId String
+  title          String
+  description    String?
+  assignedTo     String?
+  dueAt          DateTime?
+  priority       String    @default("MEDIUM")
+  // HIGH | MEDIUM | LOW
+  status         String    @default("OPEN")
+  // OPEN | IN_PROGRESS | DONE
+  chosenOutput   String?
+  completedBy    String?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  nodeInstance   FlowNodeInstance @relation(fields: [nodeInstanceId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, status])
+  @@index([registrationId])
 }
 
 // M5 — d*motion Score Engine
@@ -293,11 +386,14 @@ model EmailSendLog {
   email          String
   subject        String
   templateId     String?
+  resendId       String?   // ID returned by Resend API — used for webhook matching
   status         String    @default("SENT")
   openedAt       DateTime?
   clickedAt      DateTime?
+  bouncedAt      DateTime?
   sentAt         DateTime  @default(now())
-  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event              Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  emailTrackingEvents EmailTrackingEvent[]
 }
 
 // M9 — Hospitality & Travel
@@ -348,6 +444,7 @@ model HotelAllotment {
   hotel        Hotel     @relation(fields: [hotelId], references: [id])
   roomType     RoomType  @relation(fields: [roomTypeId], references: [id])
   assignments  RoomAssignment[]
+  routeSteps   RouteStep[]
   @@unique([eventId, roomTypeId])
 }
 
@@ -384,4 +481,141 @@ model TravelEntry {
   createdAt      DateTime  @default(now())
   event          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+}
+
+// Travel Resources & Routes (Parcy-style)
+
+model TravelResource {
+  id                String    @id @default(cuid())
+  eventId           String
+  name              String
+  travelType        String    @default("FLIGHT")
+  departureLocation String
+  arrivalLocation   String
+  departureDate     DateTime?
+  arrivalDate       DateTime?
+  departureTime     String?
+  arrivalTime       String?
+  operator          String?
+  serviceNumber     String?
+  description       String?
+  internalNotes     String?
+  units             Int?
+  internalCost      Float?
+  sellingPrice      Float?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  event             Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  routeSteps        RouteStep[]
+}
+
+model TravelRoute {
+  id                   String    @id @default(cuid())
+  eventId              String
+  name                 String
+  internalNotes        String?
+  startingLocation     String?
+  startingDate         DateTime?
+  maxExtraGuests       Int       @default(0)
+  hidden               Boolean   @default(false)
+  allowChangeRequests  Boolean   @default(false)
+  changeRequestMessage String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  event            Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  steps            RouteStep[]
+  groupAssignments RouteGroupAssignment[]
+}
+
+model RouteStep {
+  id               String    @id @default(cuid())
+  routeId          String
+  order            Int
+  stepType         String
+  travelResourceId String?
+  hotelAllotmentId String?
+  checkIn          DateTime?
+  checkOut         DateTime?
+  notes            String?
+  route          TravelRoute     @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  travelResource TravelResource? @relation(fields: [travelResourceId], references: [id], onDelete: SetNull)
+  allotment      HotelAllotment? @relation(fields: [hotelAllotmentId], references: [id], onDelete: SetNull)
+}
+
+model RouteGroupAssignment {
+  id      String @id @default(cuid())
+  routeId String
+  groupId String
+  route TravelRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  group EventGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  @@unique([routeId, groupId])
+}
+
+// Agentic Layer — Sprint 1 additions
+
+model AgentProposal {
+  id           String    @id @default(cuid())
+  eventId      String
+  orgId        String
+  agentType    String
+  // SCORE_MONITOR | EMAIL_DRAFT | REPORT | EMAIL_TRACKER | FORM_AUDIT
+  actionType   String
+  // EMAIL_SEND | MASTERLIST_CHANGE | REPORT_GENERATE | FLOW_ACTION | FORM_CHANGE
+  title        String
+  summary      String?
+  payload      String    @default("{}")
+  diffPayload  String?
+  status       String    @default("PENDING")
+  // PENDING | APPROVED | REJECTED | EXPIRED
+  scheduledAt  DateTime?
+  requestedBy  String
+  decidedBy    String?
+  decidedAt    DateTime?
+  decisionNote String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  event        Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  actionLogs   AgentActionLog[]
+  @@index([eventId, status])
+  @@index([orgId, status])
+  @@index([eventId, createdAt(sort: Desc)])
+}
+
+model AgentActionLog {
+  id          String         @id @default(cuid())
+  eventId     String
+  orgId       String
+  proposalId  String?
+  agentType   String
+  actionType  String
+  executedBy  String
+  payload     String         @default("{}")
+  result      String?
+  createdAt   DateTime       @default(now())
+  event       Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  proposal    AgentProposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  @@index([eventId, createdAt(sort: Desc)])
+}
+
+model AgentContextCache {
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  contextJson String
+  builtAt     DateTime @default(now())
+  expiresAt   DateTime
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EmailTrackingEvent {
+  id             String       @id @default(cuid())
+  emailSendLogId String
+  eventId        String
+  eventType      String
+  // OPEN | CLICK | BOUNCE | SPAM | UNSUBSCRIBE | DELIVERED
+  occurredAt     DateTime     @default(now())
+  metadata       String?
+  emailSendLog   EmailSendLog @relation(fields: [emailSendLogId], references: [id], onDelete: Cascade)
+  event          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  @@index([emailSendLogId])
+  @@index([eventId, eventType])
 }

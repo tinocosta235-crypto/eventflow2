@@ -51,8 +51,8 @@ function PhormaMark() {
       <circle cx="13" cy="5.5" r="1.5" fill="rgba(255,255,255,0.60)" />
       <defs>
         <linearGradient id="logo-grad" x1="0" y1="0" x2="26" y2="26" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#7c72f5" />
-          <stop offset="100%" stopColor="#5548d9" />
+          <stop offset="0%" stopColor="#7060CC" />
+          <stop offset="100%" stopColor="#5A4AB0" />
         </linearGradient>
       </defs>
     </svg>
@@ -71,9 +71,10 @@ export function TopNav() {
       className="fixed top-0 left-0 right-0 z-50 flex items-center px-5 gap-6 border-b"
       style={{
         height: "var(--nav-height)",
-        background:   "rgba(6, 8, 15, 0.82)",
+        background:   "linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 245, 255, 0.92))",
         backdropFilter: "blur(16px)",
-        borderColor: "rgba(109, 98, 243, 0.14)",
+        borderColor: "rgba(112, 96, 204, 0.12)",
+        boxShadow: "0 8px 24px rgba(26, 10, 61, 0.06)",
       }}
     >
       {/* ── Logo ─────────────────────────────────────────── */}
@@ -82,7 +83,7 @@ export function TopNav() {
         <div className="leading-none">
           <span
             className="font-semibold text-sm tracking-wide"
-            style={{ color: "#edeef6", letterSpacing: "0.02em" }}
+            style={{ color: "var(--text-primary)", letterSpacing: "0.02em" }}
           >
             Phorma
           </span>
@@ -109,14 +110,14 @@ export function TopNav() {
                   active
                     ? {
                         fontWeight: 550,
-                        color: "#c4beff",
-                        background: "rgba(109, 98, 243, 0.16)",
-                        borderColor: "rgba(139, 128, 255, 0.28)",
-                        boxShadow: "0 0 14px rgba(109, 98, 243, 0.12)",
+                        color: "#7060CC",
+                        background: "rgba(112, 96, 204, 0.12)",
+                        borderColor: "rgba(112, 96, 204, 0.18)",
+                        boxShadow: "0 10px 24px rgba(112, 96, 204, 0.10)",
                       }
                     : {
                         fontWeight: 400,
-                        color: "rgba(237, 238, 246, 0.60)",
+                        color: "var(--text-secondary)",
                         background: "transparent",
                         borderColor: "transparent",
                       }
@@ -131,7 +132,7 @@ export function TopNav() {
                 {active && (
                   <span
                     className="w-1 h-1 rounded-full flex-shrink-0"
-                    style={{ background: "rgba(139, 128, 255, 0.9)" }}
+                    style={{ background: "rgba(112, 96, 204, 0.9)" }}
                   />
                 )}
               </span>
@@ -146,8 +147,8 @@ export function TopNav() {
           <div
             className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-semibold flex-shrink-0 border"
             style={{
-              background: "linear-gradient(135deg, #6d62f3, #9b8af5)",
-              borderColor: "rgba(139, 128, 255, 0.35)",
+              background: "linear-gradient(135deg, #7060CC, #AFA9EC)",
+              borderColor: "rgba(175, 169, 236, 0.35)",
               color: "#ffffff",
               letterSpacing: "0.04em",
             }}

@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EventFlow Investor Memo - Board Ready</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #dbe5f1;
+      --accent: #0ea5e9;
+      --accent2: #14b8a6;
+    }
+    @page { margin: 20mm 16mm; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      line-height: 1.4;
+      font-size: 11pt;
+    }
+    .cover {
+      min-height: 90vh;
+      padding: 34mm 18mm 20mm;
+      color: #f8fafc;
+      background:
+        radial-gradient(circle at 12% 12%, rgba(20,184,166,.35), transparent 38%),
+        radial-gradient(circle at 90% 8%, rgba(14,165,233,.35), transparent 30%),
+        linear-gradient(130deg, #020617, #0f172a 45%, #0b1220);
+    }
+    .eyebrow {
+      font-size: 11pt;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: #7dd3fc;
+      font-weight: 700;
+      margin-bottom: 14mm;
+    }
+    h1 {
+      margin: 0 0 8mm;
+      font-size: 34pt;
+      line-height: 1.05;
+      max-width: 80%;
+    }
+    .subtitle {
+      max-width: 72%;
+      font-size: 13pt;
+      color: #cbd5e1;
+    }
+    .meta {
+      margin-top: 20mm;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8mm;
+      font-size: 10pt;
+      color: #dbeafe;
+    }
+    .meta b { color: #7dd3fc; }
+    .page {
+      page-break-before: always;
+      padding: 4mm 0 0;
+    }
+    h2 {
+      margin: 0 0 5mm;
+      font-size: 18pt;
+      color: #0f172a;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 2mm;
+    }
+    h3 {
+      margin: 6mm 0 2mm;
+      font-size: 12pt;
+      color: #0f172a;
+    }
+    ul { margin: 2mm 0 0 5mm; padding-left: 4mm; }
+    li { margin: 1.4mm 0; }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+      margin-top: 4mm;
+    }
+    .kpi {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 3.2mm;
+      background: #f8fafc;
+    }
+    .kpi b {
+      display: block;
+      font-size: 12pt;
+      margin-bottom: 1mm;
+      color: #0b1220;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 4mm;
+      font-size: 10.5pt;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 2.5mm;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+    }
+    .tag {
+      display: inline-block;
+      font-size: 9pt;
+      border: 1px solid #bae6fd;
+      color: #0369a1;
+      padding: .7mm 2mm;
+      border-radius: 999px;
+      margin-right: 1.5mm;
+      background: #f0f9ff;
+    }
+    .foot {
+      margin-top: 6mm;
+      font-size: 9pt;
+      color: var(--muted);
+    }
+    .small { font-size: 9.5pt; color: var(--muted); }
+    .source-list li { word-break: break-all; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="eyebrow">Board Memorandum</div>
+    <h1>EventFlow<br>Investor Memo</h1>
+    <p class="subtitle">Piano strategico, modello economico e roadmap 4 settimane per costruire la piattaforma eventi definitiva in Europa, con posizionamento premium e integrazione Amadeus prioritaria.</p>
+    <div class="meta">
+      <div><b>Versione:</b> Board Ready v1.0</div>
+      <div><b>Data:</b> 15 Marzo 2026</div>
+      <div><b>Per:</b> Investitori / Board</div>
+      <div><b>Da:</b> Founding Team EventFlow</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>1. Executive Thesis</h2>
+    <ul>
+      <li>EventFlow si posiziona tra tool ticketing commodity e suite enterprise complesse, con focus su organizer EU e compliance GDPR-by-design.</li>
+      <li>Il vantaggio competitivo è una combinazione di: gestione evento semplificata, form registration avanzato per gruppi, email builder professionale, agenti AI governati e integrazione travel.</li>
+      <li>L’integrazione prioritaria è <b>Amadeus</b> (flight/hotel) per consolidare logistica e conversione nel workflow evento.</li>
+      <li>Modello commerciale raccomandato: SaaS a canone + seats + usage add-on, evitando pricing troppo basso rispetto al mercato.</li>
+    </ul>
+    <p><span class="tag">GDPR-first</span><span class="tag">AI with governance</span><span class="tag">Travel orchestration</span><span class="tag">Multi-tenant enterprise</span></p>
+  </section>
+
+  <section class="page">
+    <h2>2. MVP in 4 settimane (15 Mar - 12 Apr 2026)</h2>
+    <h3>Settimana 1 - Platform Foundation</h3>
+    <ul>
+      <li>Org tenancy, RBAC completo (Owner, Admin, Planner, Onsite, Finance, Viewer), audit log, policy GDPR.</li>
+      <li>Billing Stripe seat-based e baseline metering.</li>
+    </ul>
+    <h3>Settimana 2 - Registration Excellence</h3>
+    <ul>
+      <li>Gestione evento coerente e semplice (information architecture Cvent-like).</li>
+      <li>Form builder drag-and-drop per gruppo con branching complesso e inviti.</li>
+      <li>Plugin <b>Sessioni</b> attivabile con capienza/waitlist.</li>
+    </ul>
+    <h3>Settimana 3 - Communications + Integrations</h3>
+    <ul>
+      <li>Email builder evento con colonne avanzate, blocchi brand, font strategy.</li>
+      <li>Automazioni email GDPR-safe.</li>
+      <li>Connettori CRM: Salesforce + HubSpot.</li>
+      <li>Amadeus Phase A: ricerca e pricing voli/hotel.</li>
+    </ul>
+    <h3>Settimana 4 - Onsite + AI Governance</h3>
+    <ul>
+      <li>Badge printing + onsite check-in desk flow.</li>
+      <li>Agenti AI in modalità <b>approve-first</b> (nessuna azione critica senza conferma).</li>
+      <li>Hardening, QA, security e beta con organizer selezionati.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>3. Go-to-Market e Pricing raccomandato</h2>
+    <table>
+      <thead>
+        <tr><th>Piano</th><th>Prezzo mensile</th><th>Seat inclusi</th><th>Uso ideale</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Launch</td><td>EUR 790</td><td>5</td><td>Organizer in crescita</td></tr>
+        <tr><td>Growth</td><td>EUR 1,490</td><td>10</td><td>Team strutturati multi-evento</td></tr>
+        <tr><td>Scale</td><td>EUR 2,990</td><td>20</td><td>Agenzie e aziende enterprise</td></tr>
+      </tbody>
+    </table>
+    <p class="small">Seat add-on: EUR 89 (Launch/Growth), EUR 119 (Scale). Add-on usage: invio email, servizi onsite premium, supporto dedicato.</p>
+    <h3>Razionale</h3>
+    <ul>
+      <li>Prezzi superiori ai tool SMB, ma inferiori al costo/complessità delle suite enterprise con pricing opaco.</li>
+      <li>Posizionamento sostenibile per compliance, customer success e prodotto AI-oriented.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>4. Piano Economico (Base Case)</h2>
+    <div class="kpi-grid">
+      <div class="kpi"><b>M12 MRR</b>EUR 68K - 78K</div>
+      <div class="kpi"><b>M12 ARR run-rate</b>EUR 0.82M - 0.94M</div>
+      <div class="kpi"><b>M24 ARR run-rate</b>EUR 2.8M - 3.4M</div>
+      <div class="kpi"><b>Gross Margin target</b>78% - 82%</div>
+      <div class="kpi"><b>NRR target</b>108% - 115%</div>
+      <div class="kpi"><b>Break-even</b>M18 - M24</div>
+    </div>
+    <h3>Assunzioni chiave</h3>
+    <ul>
+      <li>45 clienti paganti entro M12, 140 entro M24.</li>
+      <li>Mix piani M12: 60% Launch, 30% Growth, 10% Scale.</li>
+      <li>Sales cycle: 45-75 giorni, onboarding guidato e land-and-expand per seats.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>5. Integrazione Amadeus (Priorità #1)</h2>
+    <h3>Scope consigliato</h3>
+    <ul>
+      <li><b>Phase A (MVP):</b> Search + pricing (Flight Offers Search, Flight Offers Price, Hotel Search).</li>
+      <li><b>Phase B:</b> booking execution (Flight Create Orders, Hotel Booking).</li>
+    </ul>
+    <h3>Perché phased rollout</h3>
+    <ul>
+      <li>Massimizza time-to-market entro 4 settimane.</li>
+      <li>Riduce rischio operativo, support load e complessità legale in fase iniziale.</li>
+      <li>Consente validazione rapida della domanda travel in piattaforma.</li>
+    </ul>
+    <h3>Governance AI: "Approve-first"</h3>
+    <ul>
+      <li>L’agente prepara azioni automaticamente, ma l’esecuzione richiede conferma utente.</li>
+      <li>Obbligatorio per azioni sensibili: invii massivi, update stato, rimborsi, operazioni finanziarie.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>6. KPI board e north-star</h2>
+    <ul>
+      <li>Numero eventi.</li>
+      <li>Numero eventi per status.</li>
+      <li>Prossimi eventi.</li>
+      <li>Numero partecipanti gestiti.</li>
+      <li>Apertura email media.</li>
+      <li>Registration rate medio.</li>
+    </ul>
+    <p class="foot">Nota: KPI allineati ai requisiti del founder brief del 15/03/2026.</p>
+  </section>
+
+  <section class="page">
+    <h2>Appendix - Sources</h2>
+    <ul class="source-list">
+      <li>https://www.grandviewresearch.com/industry-analysis/event-management-software-market-report</li>
+      <li>https://swoogo.events/pricing</li>
+      <li>https://www.accelevents.com/pricing</li>
+      <li>https://www.eventbrite.com/organizer/pricing/</li>
+      <li>https://www.salesforce.com/sales/pricing/</li>
+      <li>https://ecosystem.hubspot.com/marketplace/apps/salesforce</li>
+      <li>https://stripe.com/billing/pricing</li>
+      <li>https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/quick-start/</li>
+      <li>https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/pricing/</li>
+      <li>https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/resources/flights/</li>
+      <li>https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/resources/hotels/</li>
+      <li>https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/api-rate-limits/</li>
+      <li>https://developers.fattureincloud.it/docs/api-reference</li>
+    </ul>
+  </section>
+</body>
+</html>

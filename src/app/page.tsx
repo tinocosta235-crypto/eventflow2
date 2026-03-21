@@ -86,7 +86,7 @@ export default async function DashboardPage() {
         subtitle={dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}
         actions={
           <Link href="/events/new">
-            <Button size="sm" className="gap-2 rounded-lg text-sm font-medium" style={{ background: "#0071E3", color: "#fff", border: "none" }}>
+            <Button size="sm" className="gap-2 rounded-lg text-sm font-medium">
               <Plus className="h-3.5 w-3.5" />
               Nuovo evento
             </Button>
@@ -97,8 +97,11 @@ export default async function DashboardPage() {
       <div className="p-8 space-y-6">
         {/* KPI Grid */}
         {pilotMockMode && (
-          <div className="rounded-xl border border-cyan-300/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-100">
-            KPI shell attiva in modalita mockup per i pilot: Evento Pirelli, KFC RGM Meeting 2026, Wurth Kick-Off.
+          <div
+            className="rounded-xl border px-4 py-2 text-sm"
+            style={{ background: "rgba(29,158,117,0.08)", borderColor: "rgba(29,158,117,0.24)", color: "#1D9E75" }}
+          >
+            KPI shell attiva in modalità mockup per i pilot: Evento Pirelli, KFC RGM Meeting 2026, Wurth Kick-Off.
           </div>
         )}
         <div className="grid grid-cols-2 xl:grid-cols-6 gap-4">
@@ -107,19 +110,19 @@ export default async function DashboardPage() {
               key={kpi.label}
               className="rounded-2xl p-5"
               style={{
-                background: "linear-gradient(160deg, rgba(14,21,38,0.90), rgba(9,13,26,0.80))",
-                border: "1px solid rgba(109,98,243,0.15)",
-                boxShadow: "0 4px 20px rgba(6,8,15,0.22), inset 0 1px 0 rgba(255,255,255,0.04)",
+                background: "var(--depth-1)",
+                border: "1px solid var(--border)",
+                boxShadow: "0 1px 3px rgba(26,10,61,0.06), 0 1px 2px rgba(26,10,61,0.04)",
               }}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: kpi.bg }}>
                   <kpi.icon className="h-[18px] w-[18px]" style={{ color: kpi.color }} />
                 </div>
-                <ArrowUpRight className="h-4 w-4" style={{ color: "#34d399" }} />
+                <ArrowUpRight className="h-4 w-4" style={{ color: "var(--ph-teal)" }} />
               </div>
-              <p className="text-2xl font-semibold tracking-tight" style={{ color: "#edeef6" }}>{kpi.value}</p>
-              <p className="text-[13px] mt-0.5" style={{ color: "#8590a8" }}>{kpi.label}</p>
+              <p className="text-2xl font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>{kpi.value}</p>
+              <p className="text-[13px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>{kpi.label}</p>
             </div>
           ))}
         </div>
@@ -130,25 +133,25 @@ export default async function DashboardPage() {
           <div
             className="xl:col-span-3 rounded-2xl overflow-hidden"
             style={{
-              background: "linear-gradient(160deg, rgba(14,21,38,0.90), rgba(9,13,26,0.80))",
-              border: "1px solid rgba(109,98,243,0.15)",
-              boxShadow: "0 4px 20px rgba(6,8,15,0.22)",
+              background: "var(--depth-1)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 1px 3px rgba(26,10,61,0.06)",
             }}
           >
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(109,98,243,0.10)" }}>
-              <p className="text-[15px] font-semibold" style={{ color: "#edeef6" }}>Prossimi eventi</p>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border-dim)" }}>
+              <p className="text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>Prossimi eventi</p>
               <Link href="/events">
-                <span className="text-[13px] flex items-center gap-1 transition-opacity hover:opacity-80" style={{ color: "#8b80ff" }}>
+                <span className="text-[13px] flex items-center gap-1 transition-opacity hover:opacity-80" style={{ color: "var(--accent)" }}>
                   Vedi tutti <ArrowRight className="h-3 w-3" />
                 </span>
               </Link>
             </div>
             {upcomingEvents.length === 0 ? (
               <div className="text-center py-16">
-                <Calendar className="h-10 w-10 mx-auto mb-3 opacity-20" style={{ color: "#8590a8" }} />
-                <p className="text-[13px]" style={{ color: "#8590a8" }}>Nessun evento in programma</p>
+                <Calendar className="h-10 w-10 mx-auto mb-3 opacity-20" style={{ color: "var(--text-tertiary)" }} />
+                <p className="text-[13px]" style={{ color: "var(--text-tertiary)" }}>Nessun evento in programma</p>
                 <Link href="/events/new">
-                  <button className="mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-colors" style={{ background: "linear-gradient(135deg,#6d62f3,#5548d9)", color: "#fff" }}>
+                  <button className="mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-colors" style={{ background: "var(--accent)", color: "#fff" }}>
                     Crea il primo evento
                   </button>
                 </Link>
@@ -160,16 +163,16 @@ export default async function DashboardPage() {
                   return (
                     <Link key={event.id} href={`/events/${event.id}`}>
                       <div
-                        className="px-5 py-3.5 transition-colors cursor-pointer"
-                        style={{ borderBottom: i < upcomingEvents.length - 1 ? "1px solid rgba(109,98,243,0.08)" : "none" }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(109,98,243,0.05)"; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                        className="px-5 py-3.5 transition-colors cursor-pointer hover:bg-[#F4F2FF]"
+                        style={{
+                          borderBottom: i < upcomingEvents.length - 1 ? "1px solid var(--border-dim)" : "none",
+                        }}
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-[14px] font-medium truncate" style={{ color: "#edeef6" }}>{event.title}</p>
+                          <p className="text-[14px] font-medium truncate" style={{ color: "var(--text-primary)" }}>{event.title}</p>
                           <Badge className={getStatusColor(event.status)}>{getStatusLabel(event.status)}</Badge>
                         </div>
-                        <div className="flex items-center gap-4 text-[12px]" style={{ color: "#8590a8" }}>
+                        <div className="flex items-center gap-4 text-[12px]" style={{ color: "var(--text-tertiary)" }}>
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />{formatDate(event.startDate)}
                           </span>
@@ -178,12 +181,12 @@ export default async function DashboardPage() {
                           </span>
                         </div>
                         {event.capacity && (
-                          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "rgba(109,98,243,0.12)" }}>
+                          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "var(--border-dim)" }}>
                             <div
                               className="h-1 rounded-full transition-all"
                               style={{
                                 width: `${fill}%`,
-                                background: fill > 90 ? "#f43f5e" : fill > 70 ? "#f97316" : "#34d399",
+                                background: fill > 90 ? "var(--fault)" : fill > 70 ? "var(--heat)" : "var(--vital)",
                               }}
                             />
                           </div>
@@ -200,42 +203,42 @@ export default async function DashboardPage() {
           <div
             className="xl:col-span-2 rounded-2xl overflow-hidden"
             style={{
-              background: "linear-gradient(160deg, rgba(14,21,38,0.90), rgba(9,13,26,0.80))",
-              border: "1px solid rgba(109,98,243,0.15)",
-              boxShadow: "0 4px 20px rgba(6,8,15,0.22)",
+              background: "var(--depth-1)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 1px 3px rgba(26,10,61,0.06)",
             }}
           >
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(109,98,243,0.10)" }}>
-              <p className="text-[15px] font-semibold" style={{ color: "#edeef6" }}>Iscrizioni recenti</p>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border-dim)" }}>
+              <p className="text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>Iscrizioni recenti</p>
               <Link href="/participants">
-                <span className="text-[13px] flex items-center gap-1 transition-opacity hover:opacity-80" style={{ color: "#8b80ff" }}>
+                <span className="text-[13px] flex items-center gap-1 transition-opacity hover:opacity-80" style={{ color: "var(--accent)" }}>
                   Tutte <ArrowRight className="h-3 w-3" />
                 </span>
               </Link>
             </div>
             {recentRegistrations.length === 0 ? (
-              <p className="text-center py-10 text-[13px]" style={{ color: "#8590a8" }}>Nessuna iscrizione</p>
+              <p className="text-center py-10 text-[13px]" style={{ color: "var(--text-tertiary)" }}>Nessuna iscrizione</p>
             ) : (
               <div>
                 {recentRegistrations.map((reg, i) => (
                   <div
                     key={reg.id}
                     className="px-5 py-3 flex items-center gap-3"
-                    style={{ borderBottom: i < recentRegistrations.length - 1 ? "1px solid rgba(109,98,243,0.08)" : "none" }}
+                    style={{ borderBottom: i < recentRegistrations.length - 1 ? "1px solid var(--border-dim)" : "none" }}
                   >
                     <div
                       className="h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold flex-shrink-0"
-                      style={{ background: "linear-gradient(135deg, #6d62f3, #9b8af5)" }}
+                      style={{ background: "linear-gradient(135deg, #7060CC, #AFA9EC)" }}
                     >
                       {reg.firstName[0]}{reg.lastName[0]}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium truncate" style={{ color: "#edeef6" }}>{reg.firstName} {reg.lastName}</p>
-                      <p className="text-[11px] truncate" style={{ color: "#8590a8" }}>{reg.event.title}</p>
+                      <p className="text-[13px] font-medium truncate" style={{ color: "var(--text-primary)" }}>{reg.firstName} {reg.lastName}</p>
+                      <p className="text-[11px] truncate" style={{ color: "var(--text-tertiary)" }}>{reg.event.title}</p>
                     </div>
                     {reg.status === "CONFIRMED"
-                      ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "#34d399" }} />
-                      : <Clock className="h-4 w-4 flex-shrink-0" style={{ color: "#f97316" }} />}
+                      ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "var(--vital)" }} />
+                      : <Clock className="h-4 w-4 flex-shrink-0" style={{ color: "var(--heat)" }} />}
                   </div>
                 ))}
               </div>
@@ -247,7 +250,7 @@ export default async function DashboardPage() {
         <div
           className="rounded-2xl p-6 flex items-center justify-between overflow-hidden relative"
           style={{
-            background: "linear-gradient(135deg, #0071E3 0%, #5856D6 50%, #AF52DE 100%)",
+            background: "linear-gradient(135deg, #3D2F8A 0%, #7060CC 55%, #AFA9EC 100%)",
           }}
         >
           <div className="absolute right-8 top-1/2 -translate-y-1/2 opacity-10">

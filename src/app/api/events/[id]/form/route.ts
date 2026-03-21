@@ -36,6 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       placeholder: body.placeholder || null,
       required: body.required ?? false,
       options: body.options ? JSON.stringify(body.options) : null,
+      conditions: body.conditions ? JSON.stringify(body.conditions) : null,
       order,
     },
   });

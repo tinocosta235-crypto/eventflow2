@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireOrg, requireOwner } from "@/lib/auth-helpers";
+import { requireOrg, requireOrgAdmin } from "@/lib/auth-helpers";
+import { logAudit } from "@/lib/audit";
+import { ORG_ROLES, normalizeOrgRole } from "@/lib/rbac";
 
 // GET /api/org/team — list members + pending invites
 export async function GET() {
@@ -20,19 +22,26 @@ export async function GET() {
     }),
   ]);
 
-  return NextResponse.json({ members, invites });
+  return NextResponse.json({
+    members: members.map((m) => ({ ...m, role: normalizeOrgRole(m.role) })),
+    invites: invites.map((i) => ({ ...i, role: normalizeOrgRole(i.role) })),
+  });
 }
 
 // PATCH /api/org/team — update member role
 export async function PATCH(req: NextRequest) {
-  const result = await requireOwner();
+  const result = await requireOrgAdmin();
   if ("error" in result) return result.error;
   const { orgId, userId: currentUserId } = result;
 
   const { userId, role } = await req.json();
   if (!userId || !role) return NextResponse.json({ error: "Parametri mancanti" }, { status: 400 });
-  if (!["OWNER", "MEMBER", "VIEWER"].includes(role)) {
+  const normalizedRole = normalizeOrgRole(role);
+  if (!ORG_ROLES.includes(normalizedRole)) {
     return NextResponse.json({ error: "Ruolo non valido" }, { status: 400 });
+  }
+  if (normalizedRole === "OWNER" && result.role !== "OWNER") {
+    return NextResponse.json({ error: "Solo un owner puo promuovere a owner" }, { status: 403 });
   }
   if (userId === currentUserId) {
     return NextResponse.json({ error: "Non puoi modificare il tuo ruolo" }, { status: 400 });
@@ -45,14 +54,20 @@ export async function PATCH(req: NextRequest) {
 
   const updated = await prisma.userOrganization.update({
     where: { userId_organizationId: { userId, organizationId: orgId } },
-    data: { role },
+    data: { role: normalizedRole },
+  });
+  await logAudit({
+    action: "TEAM_ROLE_UPDATED",
+    orgId,
+    actorId: currentUserId,
+    metadata: { targetUserId: userId, role: normalizedRole },
   });
   return NextResponse.json(updated);
 }
 
 // DELETE /api/org/team — remove member
 export async function DELETE(req: NextRequest) {
-  const result = await requireOwner();
+  const result = await requireOrgAdmin();
   if ("error" in result) return result.error;
   const { orgId, userId: currentUserId } = result;
 
@@ -69,6 +84,12 @@ export async function DELETE(req: NextRequest) {
 
   await prisma.userOrganization.delete({
     where: { userId_organizationId: { userId, organizationId: orgId } },
+  });
+  await logAudit({
+    action: "TEAM_MEMBER_REMOVED",
+    orgId,
+    actorId: currentUserId,
+    metadata: { targetUserId: userId },
   });
   return NextResponse.json({ success: true });
 }

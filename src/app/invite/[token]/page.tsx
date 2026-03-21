@@ -15,9 +15,13 @@ type InviteInfo = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  OWNER: "Proprietario",
-  MEMBER: "Membro",
-  VIEWER: "Visualizzatore",
+  OWNER: "Owner",
+  ADMIN: "Admin",
+  PLANNER: "Planner",
+  ONSITE: "Onsite",
+  FINANCE: "Finance",
+  VIEWER: "Viewer",
+  MEMBER: "Planner",
 };
 
 export default function AcceptInvitePage() {

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Calendar, MapPin, Globe, Users, Clock } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
+import { parseRegistrationPathsConfig } from "@/lib/registration-paths";
 import { RegisterForm } from "./RegisterForm";
 
 export const dynamic = "force-dynamic";
@@ -12,8 +13,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: event ? `Registrati — ${event.title}` : "Evento non trovato" };
 }
 
-export default async function PublicRegisterPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function PublicRegisterPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ pathId?: string | string[] }>;
+}) {
   const { slug } = await params;
+  const resolvedSearchParams = await searchParams;
+  const requestedPathId = Array.isArray(resolvedSearchParams.pathId)
+    ? resolvedSearchParams.pathId[0] ?? ""
+    : resolvedSearchParams.pathId ?? "";
 
   const event = await prisma.event.findUnique({
     where: { slug },
@@ -24,6 +35,8 @@ export default async function PublicRegisterPage({ params }: { params: Promise<{
       capacity: true, currentCount: true, status: true, eventType: true,
       organizerName: true, organizerEmail: true,
       formFields: { orderBy: { order: "asc" } },
+      groups: { orderBy: { order: "asc" }, select: { id: true, name: true, color: true } },
+      plugins: { where: { enabled: true }, select: { pluginType: true, config: true } },
     },
   });
 
@@ -43,6 +56,51 @@ export default async function PublicRegisterPage({ params }: { params: Promise<{
   const isFull = event.capacity != null && event.currentCount >= event.capacity;
   const spotsLeft = event.capacity != null ? event.capacity - event.currentCount : null;
 
+  // Form theme (cover image, custom title, etc.)
+  const themePlugin = event.plugins.find((p) => p.pluginType === "FORM_THEME");
+  type FormTheme = { primaryColor?: string; formTitle?: string; formSubtitle?: string; coverImage?: string; coverHeight?: "sm" | "md" | "lg" };
+  const formTheme: FormTheme = themePlugin?.config ? (() => { try { return JSON.parse(themePlugin.config) as FormTheme; } catch { return {}; } })() : {};
+
+  const sessionsPlugin = event.plugins.find((p) => p.pluginType === "SESSIONS");
+  let sessionsEnabled = false;
+  let sessions: {
+    id: string;
+    title: string;
+    capacity: number | null;
+    waitlistEnabled: boolean;
+    groupId: string | null;
+  }[] = [];
+  if (sessionsPlugin?.config) {
+    try {
+      const parsed = JSON.parse(sessionsPlugin.config) as {
+        enabled?: boolean;
+        sessions?: {
+          id?: string;
+          title?: string;
+          capacity?: number | null;
+          waitlistEnabled?: boolean;
+          groupId?: string | null;
+        }[];
+      };
+      sessionsEnabled = Boolean(parsed.enabled);
+      sessions = Array.isArray(parsed.sessions)
+        ? parsed.sessions.map((s, idx) => ({
+            id: s.id || `sess_${idx}`,
+            title: s.title || "",
+            capacity: typeof s.capacity === "number" ? s.capacity : null,
+            waitlistEnabled: s.waitlistEnabled !== false,
+            groupId: s.groupId ?? null,
+          }))
+        : [];
+    } catch {
+      sessionsEnabled = false;
+      sessions = [];
+    }
+  }
+
+  const pathsPlugin = event.plugins.find((p) => p.pluginType === "REGISTRATION_PATHS");
+  const registrationPaths = parseRegistrationPathsConfig(pathsPlugin?.config ?? null, event.groups).paths;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       {/* Header */}
@@ -58,12 +116,40 @@ export default async function PublicRegisterPage({ params }: { params: Promise<{
       <div className="max-w-2xl mx-auto px-6 py-10 space-y-8">
         {/* Event card */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8 text-white">
-            <h1 className="text-2xl font-bold mb-2">{event.title}</h1>
-            {event.description && (
-              <p className="text-blue-100 text-sm leading-relaxed">{event.description}</p>
-            )}
-          </div>
+          {/* Above the fold: cover image or gradient */}
+          {formTheme.coverImage ? (
+            <div
+              className="relative w-full overflow-hidden"
+              style={{ height: formTheme.coverHeight === "sm" ? "6rem" : formTheme.coverHeight === "lg" ? "13rem" : "9rem" }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={formTheme.coverImage} alt={event.title} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent flex flex-col justify-end px-6 pb-5">
+                <h1 className="text-2xl font-bold text-white drop-shadow">
+                  {formTheme.formTitle || event.title}
+                </h1>
+                {(formTheme.formSubtitle || event.description) && (
+                  <p className="text-white/80 text-sm mt-1 leading-relaxed drop-shadow">
+                    {formTheme.formSubtitle || event.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div
+              className="px-6 py-8 text-white"
+              style={{ background: formTheme.primaryColor ? `linear-gradient(135deg, ${formTheme.primaryColor}dd, ${formTheme.primaryColor}99)` : "linear-gradient(135deg, #2563eb, #4f46e5)" }}
+            >
+              <h1 className="text-2xl font-bold mb-2">
+                {formTheme.formTitle || event.title}
+              </h1>
+              {(formTheme.formSubtitle || event.description) && (
+                <p className="text-white/80 text-sm leading-relaxed">
+                  {formTheme.formSubtitle || event.description}
+                </p>
+              )}
+            </div>
+          )}
           <div className="p-6 grid grid-cols-2 gap-4 text-sm">
             {event.startDate && (
               <div className="flex items-start gap-2">
@@ -118,6 +204,11 @@ export default async function PublicRegisterPage({ params }: { params: Promise<{
         <RegisterForm
           eventSlug={slug}
           formFields={event.formFields}
+          groups={event.groups}
+          registrationPaths={registrationPaths}
+          initialPathId={requestedPathId}
+          sessionsEnabled={sessionsEnabled}
+          sessions={sessions}
           isFull={isFull}
         />
 

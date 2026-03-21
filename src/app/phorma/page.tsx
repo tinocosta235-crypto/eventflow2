@@ -95,7 +95,6 @@ export default function PhormaPage() {
   const [prompt, setPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
   const [html, setHtml] = useState("");
-  const [preview, setPreview] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -103,7 +102,6 @@ export default function PhormaPage() {
     if (!prompt.trim()) return;
     setGenerating(true);
     setHtml("");
-    setPreview(false);
     try {
       const res = await fetch("/api/phorma", {
         method: "POST",
@@ -112,17 +110,15 @@ export default function PhormaPage() {
       });
       const data = await res.json();
       setHtml(data.html || EXAMPLE_HTML);
-      setPreview(true);
     } catch {
       // Fallback to example
       setHtml(EXAMPLE_HTML);
-      setPreview(true);
     } finally {
       setGenerating(false);
     }
   }
 
-  function useTemplate(t: (typeof TEMPLATES)[0]) {
+  function applyTemplate(t: (typeof TEMPLATES)[0]) {
     setSelectedTemplate(t.id);
     setPrompt(t.prompt);
   }
@@ -166,7 +162,7 @@ export default function PhormaPage() {
                   {TEMPLATES.map((t) => (
                     <button
                       key={t.id}
-                      onClick={() => useTemplate(t)}
+                      onClick={() => applyTemplate(t)}
                       className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm text-left transition-colors ${
                         selectedTemplate === t.id
                           ? "border-blue-500 bg-blue-50 text-blue-700 font-medium"
@@ -208,7 +204,7 @@ export default function PhormaPage() {
                       : <><Zap className="h-4 w-4" />Genera con AI</>}
                   </Button>
                   {html && (
-                    <Button variant="outline" size="icon" onClick={() => { setHtml(""); setPreview(false); }} title="Reset">
+                    <Button variant="outline" size="icon" onClick={() => { setHtml(""); }} title="Reset">
                       <RefreshCw className="h-4 w-4" />
                     </Button>
                   )}

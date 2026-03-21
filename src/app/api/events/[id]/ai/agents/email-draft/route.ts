@@ -28,7 +28,7 @@ const tools: Parameters<typeof anthropic.messages.create>[0]["tools"] = [
         },
         targetAudience: {
           type: "string",
-          enum: ["CONFIRMED", "PENDING", "WAITLISTED", "ALL"],
+          enum: ["CONFIRMED", "PENDING", "WAITLIST", "ALL"],
           description: "A chi inviare l'email",
         },
         rationale: { type: "string", description: "Perché questa email è prioritaria ora (1 frase)" },
@@ -44,7 +44,7 @@ const tools: Parameters<typeof anthropic.messages.create>[0]["tools"] = [
 ]
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireOrg("MEMBER")
+  const auth = await requireOrg("PLANNER")
   if ("error" in auth) return auth.error
   const { id } = await params
 

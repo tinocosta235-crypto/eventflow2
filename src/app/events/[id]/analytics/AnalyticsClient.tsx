@@ -5,15 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  TrendingUp, TrendingDown, Minus, RefreshCw, Settings2, Save,
+  TrendingUp, Minus, RefreshCw, Settings2, Save,
   Users, Mail, CheckSquare, ArrowUpRight, BarChart3,
 } from "lucide-react"
 import {
   KPI_META, KpiKey, ScoreResult, DEFAULT_WEIGHTS, DEFAULT_ENABLED,
-  getScoreColor, getScoreBg,
+  getScoreBg,
 } from "@/lib/score-engine"
 import { AIAnalyzePanel, AIEmailScorer, AIChatPanel } from "./AIPanel"
-import { ScoreMonitorAgent, EmailDraftAgent } from "./AgentsPanel"
+// Agents moved to /events/[id]/agents page
 
 interface AnalyticsData {
   event: { id: string; title: string; capacity: number | null; status: string }
@@ -67,10 +67,9 @@ function ScoreGauge({ score, grade }: { score: number; grade: string }) {
   )
 }
 
-function KpiBar({ kpiKey, value, contribution, weight, rating }: {
+function KpiBar({ kpiKey, value, weight, rating }: {
   kpiKey: KpiKey
   value: number | null
-  contribution: number
   weight: number
   rating: "poor" | "ok" | "good" | "na"
 }) {
@@ -299,7 +298,6 @@ export default function AnalyticsClient({ eventId }: { eventId: string }) {
                   key={key}
                   kpiKey={key}
                   value={kpiValues[key]}
-                  contribution={br.contribution}
                   weight={br.weight}
                   rating={br.rating}
                 />
@@ -381,12 +379,6 @@ export default function AnalyticsClient({ eventId }: { eventId: string }) {
           </CardContent>
         </Card>
       )}
-
-      {/* AI Agents */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ScoreMonitorAgent eventId={eventId} />
-        <EmailDraftAgent eventId={eventId} />
-      </div>
 
       {/* AI Layer */}
       <AIAnalyzePanel eventId={eventId} />

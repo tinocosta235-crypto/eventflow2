@@ -5,8 +5,15 @@ import {
   sendEmail,
   buildRegistrationConfirmationEmail,
   buildWaitlistConfirmationEmail,
+  buildCustomEmail,
 } from "@/lib/email";
 import { formatDateTime } from "@/lib/utils";
+import { runEventFlowTrigger } from "@/lib/event-flow-runtime";
+import {
+  parseRegistrationPathsConfig,
+  resolveRegistrationPathByGroup,
+  resolveRegistrationPathById,
+} from "@/lib/registration-paths";
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -19,6 +26,8 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ slug: 
       online: true, onlineUrl: true, capacity: true, currentCount: true,
       status: true, eventType: true, coverImage: true, website: true,
       formFields: { orderBy: { order: "asc" } },
+      groups: { orderBy: { order: "asc" }, select: { id: true, name: true, color: true } },
+      plugins: { where: { enabled: true }, select: { pluginType: true, config: true } },
     },
   });
 
@@ -43,10 +52,48 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   if (event.status !== "PUBLISHED") return NextResponse.json({ error: "Registrazioni non aperte" }, { status: 403 });
 
   const body = await req.json();
-  const { firstName, lastName, email, phone, company, jobTitle, customFields } = body;
+  const { firstName, lastName, email, phone, company, jobTitle, groupId, pathId, customFields, sessionSelections } = body;
 
   if (!firstName || !lastName || !email) {
     return NextResponse.json({ error: "Nome, cognome e email sono obbligatori" }, { status: 400 });
+  }
+
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const registrationPlugin = await prisma.eventPlugin.findUnique({
+    where: { eventId_pluginType: { eventId: event.id, pluginType: "REGISTRATION" } },
+  });
+  if (registrationPlugin?.config) {
+    try {
+      const parsed = JSON.parse(registrationPlugin.config) as { mode?: string; invitedEmails?: string[] };
+      if (parsed.mode === "INVITE_ONLY") {
+        const invited = (parsed.invitedEmails ?? []).map((e) => e.toLowerCase().trim());
+        if (!invited.includes(normalizedEmail)) {
+          return NextResponse.json({ error: "Registrazione riservata a utenti invitati" }, { status: 403 });
+        }
+      }
+    } catch {
+      // ignore malformed config
+    }
+  }
+
+  let validGroupId: string | null = null;
+  const groups = await prisma.eventGroup.findMany({
+    where: { eventId: event.id },
+    orderBy: { order: "asc" },
+    select: { id: true, name: true },
+  });
+  const pathsPlugin = await prisma.eventPlugin.findUnique({
+    where: { eventId_pluginType: { eventId: event.id, pluginType: "REGISTRATION_PATHS" } },
+  });
+  const registrationPaths = parseRegistrationPathsConfig(pathsPlugin?.config ?? null, groups).paths;
+  const selectedPath = resolveRegistrationPathById(registrationPaths, typeof pathId === "string" ? pathId : null);
+
+  if (groupId) {
+    const group = await prisma.eventGroup.findFirst({ where: { id: groupId, eventId: event.id } });
+    if (!group) return NextResponse.json({ error: "Gruppo non valido" }, { status: 400 });
+    validGroupId = group.id;
+  } else if (selectedPath?.groupId) {
+    validGroupId = selectedPath.groupId;
   }
 
   const isFull = event.capacity != null && event.currentCount >= event.capacity;
@@ -59,10 +106,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         registrationCode: generateCode("REG"),
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         phone: phone || null,
         company: company || null,
         jobTitle: jobTitle || null,
+        groupId: validGroupId,
+        notes:
+          Array.isArray(sessionSelections) && sessionSelections.length > 0
+            ? `Sessioni selezionate: ${(sessionSelections as string[]).join(", ")}`
+            : null,
         source: "public_form",
         status,
         paymentStatus: "FREE",
@@ -86,13 +138,49 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       await prisma.event.update({ where: { id: event.id }, data: { currentCount: { increment: 1 } } });
     }
 
+    runEventFlowTrigger({
+      eventId: event.id,
+      trigger: "registration_submitted",
+      registrationId: reg.id,
+      payload: { source: "public_form", status },
+    }).catch(console.error);
+
+    runEventFlowTrigger({
+      eventId: event.id,
+      trigger: "guest_status_updated",
+      registrationId: reg.id,
+      payload: { status },
+    }).catch(console.error);
+
     // Fire-and-forget email
     const eventDate = event.startDate ? formatDateTime(event.startDate) : undefined;
     const eventLocation = event.online
       ? (event.onlineUrl ? `Online — ${event.onlineUrl}` : "Evento online")
       : [event.location, event.city].filter(Boolean).join(", ") || undefined;
 
-    if (status === "WAITLIST") {
+    const resolvedPath = selectedPath ?? resolveRegistrationPathByGroup(registrationPaths, validGroupId);
+    const pathTemplateId = status === "WAITLIST"
+      ? resolvedPath?.emailTemplateIds.waitlistTemplateId
+      : resolvedPath?.emailTemplateIds.confirmationTemplateId;
+    const pathTemplate = pathTemplateId
+      ? await prisma.emailTemplate.findFirst({
+          where: { id: pathTemplateId, eventId: event.id },
+          select: { subject: true, body: true },
+        })
+      : null;
+
+    if (pathTemplate) {
+      sendEmail({
+        to: reg.email,
+        ...buildCustomEmail({
+          firstName: reg.firstName,
+          lastName: reg.lastName,
+          eventTitle: event.title,
+          subject: pathTemplate.subject,
+          body: pathTemplate.body,
+        }),
+      }).catch(console.error);
+    } else if (status === "WAITLIST") {
       sendEmail({
         to: reg.email,
         ...buildWaitlistConfirmationEmail({

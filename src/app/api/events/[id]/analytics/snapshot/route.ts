@@ -12,7 +12,7 @@ import {
 } from "@/lib/score-engine"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireOrg("MEMBER")
+  const auth = await requireOrg("PLANNER")
   if ("error" in auth) return auth.error
   const { id } = await params
 

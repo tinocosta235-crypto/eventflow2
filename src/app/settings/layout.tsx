@@ -1,40 +1,63 @@
-import Link from "next/link";
-import { Settings, Users, User, Building2, Mail } from "lucide-react";
+"use client";
 
-const TABS = [
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ArrowLeft, Building2, Mail, User, UserCog } from "lucide-react";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { Header } from "@/components/layout/header";
+import { cn } from "@/lib/utils";
+
+const SETTINGS_TABS = [
   { href: "/settings/profile", label: "Profilo", icon: User },
   { href: "/settings/org", label: "Organizzazione", icon: Building2 },
-  { href: "/settings/team", label: "Team", icon: Users },
-  { href: "/settings/email", label: "Email", icon: Mail },
+  { href: "/settings/team", label: "Team", icon: UserCog },
+  { href: "/settings/email", label: "Email mittente", icon: Mail },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center">
-          <Settings className="h-5 w-5 text-gray-600" />
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900">Impostazioni</h1>
-      </div>
+  const pathname = usePathname();
 
-      <div className="flex gap-8">
-        {/* Sidebar nav */}
-        <nav className="w-48 flex-shrink-0 space-y-1">
-          {TABS.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Link>
-          ))}
+  return (
+    <DashboardLayout>
+      <Header
+        title="Impostazioni"
+        subtitle="Configura account, organizzazione, team e preferenze piattaforma"
+        actions={
+          <Link href="/">
+            <button className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(109,98,243,0.14)] bg-white/90 px-3 py-1.5 text-sm text-slate-700 shadow-[0_10px_24px_rgba(109,98,243,0.08)] hover:bg-[rgba(109,98,243,0.06)] transition-colors">
+              <ArrowLeft className="h-4 w-4" />
+              Indietro
+            </button>
+          </Link>
+        }
+      />
+
+      <div className="px-8 py-6 space-y-5">
+        <nav className="flex flex-wrap gap-2">
+          {SETTINGS_TABS.map((tab) => {
+            const active = pathname === tab.href || (tab.href === "/settings/profile" && pathname === "/settings");
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                  active
+                    ? "border-[rgba(109,98,243,0.22)] bg-[rgba(109,98,243,0.10)] text-[var(--accent)]"
+                    : "border-[rgba(109,98,243,0.12)] bg-white/88 text-slate-600 hover:bg-[rgba(109,98,243,0.05)] hover:text-slate-900"
+                )}
+              >
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="flex-1 min-w-0">{children}</div>
+        <section className="rounded-2xl border border-[rgba(109,98,243,0.14)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,248,255,0.95))] p-5 shadow-[0_18px_42px_rgba(109,98,243,0.08)]">
+          {children}
+        </section>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

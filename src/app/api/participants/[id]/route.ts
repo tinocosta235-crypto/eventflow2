@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireMember, requireOrg, requireOwner } from "@/lib/auth-helpers";
 import { sendEmail, buildWaitlistPromotionEmail } from "@/lib/email";
 import { formatDateTime } from "@/lib/utils";
+import { runEventFlowTrigger } from "@/lib/event-flow-runtime";
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const result = await requireOrg("VIEWER");
@@ -57,6 +58,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       groupId: body.groupId !== undefined ? (body.groupId || null) : existing.groupId,
     },
   });
+
+  if (body.status && body.status !== existing.status) {
+    runEventFlowTrigger({
+      eventId: reg.eventId,
+      trigger: "guest_status_updated",
+      registrationId: reg.id,
+      payload: { from: existing.status, to: body.status },
+    }).catch(console.error);
+  }
   return NextResponse.json(reg);
 }
 

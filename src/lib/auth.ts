@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { normalizeOrgRole } from "@/lib/rbac";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -27,13 +28,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(credentials.password as string, user.password);
         if (!valid) return null;
         const membership = user.organizations[0];
+        const normalizedRole = normalizeOrgRole(membership?.role);
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           organizationId: membership?.organizationId ?? "",
           orgName: membership?.organization?.name ?? "",
-          role: membership?.role ?? "STAFF",
+          role: normalizedRole,
         };
       },
     }),

@@ -78,8 +78,6 @@ function ShapePath({ shape, size }: { shape: string; size: number }) {
   const r = size * 0.38;
 
   if (shape === "octagon") {
-    const a = r * Math.sin(Math.PI / 8);
-    const b = r * Math.cos(Math.PI / 8);
     const pts = Array.from({ length: 8 }, (_, i) => {
       const angle = (i * Math.PI) / 4 - Math.PI / 8;
       return `${(c + r * Math.cos(angle)).toFixed(2)},${(c + r * Math.sin(angle)).toFixed(2)}`;

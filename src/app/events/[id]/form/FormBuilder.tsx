@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, useMemo, useEffect, useRef } from "react";
 import {
   DndContext,
@@ -29,18 +31,19 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toaster";
 import {
   GripVertical, Trash2, Settings2, Plus, Eye, Loader2, Save, Check,
-  Type, AlignLeft, Mail, Phone, Hash, Calendar, Clock, Link,
+  Type, AlignLeft, Mail, Phone, Hash, Calendar, Clock, Link as LinkIcon, Users,
   ChevronDown, Circle, CheckSquare, Star, Sliders, ToggleLeft,
   Info, Minus, FileText, Globe, MapPin, X, Palette, AlertTriangle,
-  ImageIcon, Upload, LayoutTemplate,
+  ImageIcon, Upload, LayoutTemplate, ArrowLeft,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type FieldType =
   | "text" | "textarea" | "email" | "phone" | "number" | "date" | "time" | "url"
   | "select" | "radio" | "checkbox" | "rating" | "scale" | "toggle"
-  | "section" | "divider" | "page_break" | "statement" | "country" | "address";
+  | "section" | "divider" | "page_break" | "statement" | "country" | "address" | "registration_path";
 
 type ConditionOperator =
   | "equals" | "not_equals" | "contains" | "not_contains"
@@ -78,12 +81,33 @@ interface FormField {
 }
 
 interface EventGroup { id: string; name: string }
+interface RegistrationPathEmailMap {
+  inviteTemplateId?: string | null;
+  confirmationTemplateId?: string | null;
+  waitlistTemplateId?: string | null;
+  reminderTemplateId?: string | null;
+  updateTemplateId?: string | null;
+  followupTemplateId?: string | null;
+}
+interface RegistrationPath {
+  id: string;
+  name: string;
+  description: string;
+  groupId: string | null;
+  active: boolean;
+  formMode: "EVENT_DEFAULT";
+  flowMode: "GROUP_SCOPED";
+  emailTemplateIds: RegistrationPathEmailMap;
+}
+type RegistrationPathsConfig = { version: 1; updatedAt: string; paths: RegistrationPath[] };
 type SessionItem = { id: string; title: string; capacity: number | null; waitlistEnabled: boolean; groupId: string | null };
 type SessionsConfig = { enabled: boolean; sessions: SessionItem[] };
 type RegistrationConfig = { mode: "PUBLIC" | "INVITE_ONLY"; invitedEmails: string[] };
+type ConditionSourceOption = { id: string; label: string };
 
 interface Props {
   eventId: string;
+  eventSlug: string;
   initialFields: FormField[];
 }
 
@@ -93,9 +117,12 @@ const STANDARD_FIELDS = [
   { label: "Nome", type: "text", required: true },
   { label: "Cognome", type: "text", required: true },
   { label: "Email", type: "email", required: true },
-  { label: "Telefono", type: "phone", required: false },
-  { label: "Azienda", type: "text", required: false },
-  { label: "Ruolo", type: "text", required: false },
+];
+
+const STANDARD_CONDITION_FIELDS: ConditionSourceOption[] = [
+  { id: "firstName", label: "Nome" },
+  { id: "lastName", label: "Cognome" },
+  { id: "email", label: "Email" },
 ];
 
 const FIELD_CATEGORIES: {
@@ -112,7 +139,7 @@ const FIELD_CATEGORIES: {
       { type: "number",   label: "Numero",          icon: Hash,        color: "text-blue-600",   bg: "bg-blue-50" },
       { type: "date",     label: "Data",            icon: Calendar,    color: "text-blue-600",   bg: "bg-blue-50" },
       { type: "time",     label: "Ora",             icon: Clock,       color: "text-blue-600",   bg: "bg-blue-50" },
-      { type: "url",      label: "Sito web",        icon: Link,        color: "text-blue-600",   bg: "bg-blue-50" },
+      { type: "url",      label: "Sito web",        icon: LinkIcon,    color: "text-blue-600",   bg: "bg-blue-50" },
     ],
   },
   {
@@ -121,6 +148,7 @@ const FIELD_CATEGORIES: {
       { type: "select",   label: "Menu a tendina", icon: ChevronDown, color: "text-violet-600", bg: "bg-violet-50" },
       { type: "radio",    label: "Scelta singola", icon: Circle,      color: "text-violet-600", bg: "bg-violet-50" },
       { type: "checkbox", label: "Scelta multipla",icon: CheckSquare, color: "text-violet-600", bg: "bg-violet-50" },
+      { type: "registration_path", label: "Tipo registrazione", icon: Users, color: "text-violet-600", bg: "bg-violet-50" },
       { type: "rating",   label: "Stelle",         icon: Star,        color: "text-violet-600", bg: "bg-violet-50" },
       { type: "scale",    label: "Scala 1–10",     icon: Sliders,     color: "text-violet-600", bg: "bg-violet-50" },
       { type: "toggle",   label: "Sì / No",        icon: ToggleLeft,  color: "text-violet-600", bg: "bg-violet-50" },
@@ -181,6 +209,29 @@ function parseOptions(raw: string | null | undefined): string[] {
   try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; }
 }
 
+function fieldVisibleForPath(field: FormField, pathGroupId: string | null) {
+  const conds = parseConditions(field.conditions);
+  const vis = conds.visibility;
+  if (!pathGroupId) return true;
+  if (!vis || vis.mode === "ALL") return true;
+  return vis.groupIds.includes(pathGroupId);
+}
+
+function operatorLabel(operator: ConditionOperator) {
+  if (operator === "equals") return "è uguale a";
+  if (operator === "not_equals") return "non è uguale a";
+  if (operator === "contains") return "contiene";
+  if (operator === "not_contains") return "non contiene";
+  if (operator === "is_empty") return "è vuoto";
+  if (operator === "is_not_empty") return "non è vuoto";
+  if (operator === "greater_than") return "è maggiore di";
+  return "è minore di";
+}
+
+function sourceFieldLabel(fieldId: string, fields: ConditionSourceOption[]) {
+  return fields.find((field) => field.id === fieldId)?.label ?? "Campo";
+}
+
 // ─── PaletteItem ──────────────────────────────────────────────────────────────
 
 function PaletteItem({
@@ -197,7 +248,7 @@ function PaletteItem({
       {...listeners}
       {...attributes}
       onClick={(e) => { e.stopPropagation(); onAdd(); }}
-      className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing border border-transparent hover:border-gray-200 hover:bg-white hover:shadow-sm transition-all select-none group ${isDragging ? "opacity-30" : ""}`}
+      className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing border border-transparent hover:border-gray-200 hover:bg-gray-50 hover:shadow-sm transition-all select-none group ${isDragging ? "opacity-30" : ""}`}
     >
       <div className={`h-6 w-6 rounded-md flex items-center justify-center flex-shrink-0 ${bg}`}>
         <Icon className={`h-3.5 w-3.5 ${color}`} />
@@ -207,9 +258,161 @@ function PaletteItem({
   );
 }
 
-// ─── SortableFieldCard ────────────────────────────────────────────────────────
+// ─── CanvasDropZone ───────────────────────────────────────────────────────────
 
-function SortableFieldCard({
+function CanvasDropZone({ children, isEmpty }: { children: React.ReactNode; isEmpty: boolean }) {
+  const { isOver, setNodeRef } = useDroppable({ id: "canvas" });
+
+  return (
+    <div ref={setNodeRef} className="min-h-10">
+      {isEmpty ? (
+        <div className={`h-28 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors ${
+          isOver ? "border-indigo-400 bg-indigo-50/40" : "border-gray-200 bg-gray-50/60"
+        }`}>
+          <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isOver ? "bg-indigo-100" : "bg-gray-100"}`}>
+            <Plus className={`h-4 w-4 ${isOver ? "text-indigo-500" : "text-gray-400"}`} />
+          </div>
+          <p className="text-sm text-gray-400">Trascina un campo qui o clicca nel pannello sinistro</p>
+        </div>
+      ) : (
+        <div className={`space-y-2 rounded-xl transition-colors ${isOver ? "outline outline-2 outline-indigo-300 outline-offset-4" : ""}`}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CanvasFieldPreview ───────────────────────────────────────────────────────
+// Renders a WYSIWYG visual of the field (how it looks in the real form)
+
+function CanvasFieldPreview({ field }: { field: FormField }) {
+  const opts = parseOptions(field.options);
+  const isLayout = LAYOUT_TYPES.has(field.type);
+
+  if (field.type === "divider") {
+    return <hr className="border-gray-200 my-1" />;
+  }
+
+  if (field.type === "section") {
+    return (
+      <h3 className="text-base font-bold text-gray-800 pt-2 pb-1">{field.label || "Titolo sezione"}</h3>
+    );
+  }
+
+  if (field.type === "statement") {
+    return (
+      <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3">
+        <p className="text-sm text-blue-800">{field.label || "Testo informativo"}</p>
+      </div>
+    );
+  }
+
+  if (field.type === "page_break") {
+    return (
+      <div className="flex items-center gap-3 my-1">
+        <div className="flex-1 border-t border-dashed border-gray-300" />
+        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Nuova pagina</span>
+        <div className="flex-1 border-t border-dashed border-gray-300" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-800 mb-1.5">
+        {field.label || <span className="text-gray-300 italic">Senza etichetta</span>}
+        {field.required && !isLayout && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+
+      {field.type === "textarea" ? (
+        <textarea
+          rows={3}
+          disabled
+          placeholder={field.placeholder ?? "Scrivi qui..."}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50 resize-none"
+        />
+      ) : field.type === "select" || field.type === "registration_path" ? (
+        <div className="h-10 border border-gray-200 rounded-lg px-3 flex items-center justify-between bg-gray-50">
+          <span className="text-sm text-gray-400">
+            {field.type === "registration_path" ? "Seleziona tipo di registrazione..." : (opts[0] ?? "Seleziona...")}
+          </span>
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        </div>
+      ) : field.type === "radio" ? (
+        <div className="space-y-2 mt-1">
+          {(opts.length ? opts : ["Opzione 1", "Opzione 2"]).map((opt, i) => (
+            <label key={i} className="flex items-center gap-2.5 text-sm text-gray-600 cursor-default">
+              <div className="h-4 w-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
+              {opt}
+            </label>
+          ))}
+        </div>
+      ) : field.type === "checkbox" ? (
+        <div className="space-y-2 mt-1">
+          {(opts.length ? opts : ["Opzione 1", "Opzione 2"]).map((opt, i) => (
+            <label key={i} className="flex items-center gap-2.5 text-sm text-gray-600 cursor-default">
+              <div className="h-4 w-4 rounded border-2 border-gray-300 flex-shrink-0" style={{ borderRadius: 4 }} />
+              {opt}
+            </label>
+          ))}
+        </div>
+      ) : field.type === "toggle" ? (
+        <div className="flex gap-5 mt-1">
+          {["Sì", "No"].map(v => (
+            <label key={v} className="flex items-center gap-2 text-sm text-gray-600 cursor-default">
+              <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+              {v}
+            </label>
+          ))}
+        </div>
+      ) : field.type === "rating" ? (
+        <div className="flex gap-1 mt-1">
+          {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-6 w-6 text-gray-200" />)}
+        </div>
+      ) : field.type === "scale" ? (
+        <div className="flex gap-1 mt-1">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="h-8 w-8 rounded border border-gray-200 flex items-center justify-center text-xs text-gray-400 bg-gray-50">
+              {i + 1}
+            </div>
+          ))}
+        </div>
+      ) : field.type === "country" ? (
+        <div className="h-10 border border-gray-200 rounded-lg px-3 flex items-center justify-between bg-gray-50">
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Globe className="h-4 w-4" /> Seleziona paese...
+          </div>
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        </div>
+      ) : field.type === "address" ? (
+        <div className="space-y-2 mt-1">
+          <input disabled placeholder="Via e numero civico..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50" />
+          <div className="grid grid-cols-2 gap-2">
+            <input disabled placeholder="Città..." className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50" />
+            <input disabled placeholder="CAP..." className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50" />
+          </div>
+        </div>
+      ) : field.type === "date" ? (
+        <input type="date" disabled className="w-full h-10 border border-gray-200 rounded-lg px-3 text-sm text-gray-400 bg-gray-50" />
+      ) : field.type === "time" ? (
+        <input type="time" disabled className="w-full h-10 border border-gray-200 rounded-lg px-3 text-sm text-gray-400 bg-gray-50" />
+      ) : (
+        <input
+          type={field.type === "email" ? "email" : field.type === "number" ? "number" : field.type === "url" ? "url" : "text"}
+          disabled
+          placeholder={field.placeholder ?? `${field.label.toLowerCase()}...`}
+          className="w-full h-10 border border-gray-200 rounded-lg px-3 text-sm text-gray-400 bg-gray-50"
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── SortableCanvasCard ────────────────────────────────────────────────────────
+// WYSIWYG sortable card for the canvas center panel
+
+function SortableCanvasCard({
   field, isSelected, onSelect, onDelete, onToggleRequired, deleting,
 }: {
   field: FormField; isSelected: boolean; onSelect: () => void;
@@ -221,7 +424,6 @@ function SortableFieldCard({
 
   const style = { transform: CSS.Transform.toString(transform), transition };
   const ti = getTypeInfo(field.type);
-  const Icon = ti.icon;
   const conds = parseConditions(field.conditions);
   const hasRules = (conds.showIf?.rules?.length ?? 0) > 0;
   const isGrouped = conds.visibility?.mode === "GROUPS";
@@ -232,68 +434,62 @@ function SortableFieldCard({
       ref={setNodeRef}
       style={style}
       onClick={onSelect}
-      className={`rounded-xl border transition-all cursor-pointer ${isDragging ? "opacity-40 shadow-xl z-50" : ""} ${
+      className={`group relative bg-white rounded-2xl shadow-sm border transition-all cursor-pointer ${
+        isDragging ? "opacity-40 shadow-xl z-50" : ""
+      } ${
         isSelected
-          ? "border-blue-400 bg-blue-50/40 shadow-sm ring-1 ring-blue-200"
-          : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
+          ? "border-indigo-400 ring-2 ring-indigo-200 shadow-md"
+          : "border-gray-200 hover:border-gray-300 hover:shadow-md"
       } ${isLayout ? "border-dashed" : ""}`}
     >
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <div
-          {...listeners}
-          {...attributes}
-          onClick={e => e.stopPropagation()}
-          className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0"
-        >
-          <GripVertical className="h-4 w-4" />
-        </div>
+      {/* Drag handle */}
+      <div
+        {...listeners}
+        {...attributes}
+        onClick={e => e.stopPropagation()}
+        className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-200 hover:text-gray-400 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
+      >
+        <GripVertical className="h-4 w-4" />
+      </div>
 
-        <div className={`h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 ${ti.bg}`}>
-          <Icon className={`h-3.5 w-3.5 ${ti.color}`} />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-medium truncate ${isLayout ? "text-gray-400 italic" : "text-gray-900"}`}>
-            {field.label || <span className="text-gray-300">Senza etichetta</span>}
-          </p>
-          <p className="text-xs text-gray-400">{ti.label}</p>
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {hasRules && (
-            <span className="h-5 w-5 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center" title="Logica condizionale attiva">
-              <AlertTriangle className="h-3 w-3 text-amber-500" />
-            </span>
-          )}
-          {isGrouped && (
-            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">Gruppi</span>
-          )}
-          {!isLayout && (
-            <button
-              onClick={e => { e.stopPropagation(); onToggleRequired(); }}
-              className={`text-xs px-2 py-0.5 rounded-full border font-medium transition-colors ${
-                field.required
-                  ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                  : "bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              {field.required ? "Obbligatorio" : "Opzionale"}
-            </button>
-          )}
+      {/* Top-right actions — visible on hover/selected */}
+      <div className={`absolute top-2 right-2 flex items-center gap-1 z-10 transition-opacity ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+        {hasRules && (
+          <span className="h-5 w-5 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center" title="Logica condizionale attiva">
+            <AlertTriangle className="h-3 w-3 text-amber-500" />
+          </span>
+        )}
+        {isGrouped && (
+          <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full border border-gray-200">Gruppi</span>
+        )}
+        {!isLayout && (
           <button
-            onClick={e => { e.stopPropagation(); onDelete(); }}
-            disabled={deleting}
-            className="h-6 w-6 rounded flex items-center justify-center hover:bg-red-50 hover:text-red-500 text-gray-300 transition-colors"
+            onClick={e => { e.stopPropagation(); onToggleRequired(); }}
+            className={`text-[10px] px-2 py-0.5 rounded-full border font-medium transition-colors ${
+              field.required
+                ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                : "bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300"
+            }`}
           >
-            {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            {field.required ? "Obbligatorio" : "Opzionale"}
           </button>
-        </div>
+        )}
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(); }}
+          disabled={deleting}
+          className="h-6 w-6 rounded-lg flex items-center justify-center hover:bg-red-50 hover:text-red-500 text-gray-300 border border-transparent hover:border-red-100 transition-colors"
+        >
+          {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+
+      {/* Field WYSIWYG content */}
+      <div className="px-6 py-4 pl-8">
+        <CanvasFieldPreview field={field} />
       </div>
     </div>
   );
 }
-
-// ─── CanvasDropZone ───────────────────────────────────────────────────────────
 
 // ─── HeaderBlock ──────────────────────────────────────────────────────────────
 
@@ -304,8 +500,8 @@ function HeaderBlock({ theme, isSelected, onClick }: { theme: FormTheme; isSelec
   return (
     <div
       onClick={onClick}
-      className={`rounded-xl border-2 overflow-hidden cursor-pointer transition-all mb-4 ${
-        isSelected ? "border-blue-400 ring-2 ring-blue-200 shadow-sm" : "border-dashed border-gray-200 hover:border-gray-300"
+      className={`rounded-2xl border-2 overflow-hidden cursor-pointer transition-all mb-3 ${
+        isSelected ? "border-indigo-400 ring-2 ring-indigo-200 shadow-md" : "border-dashed border-gray-200 hover:border-gray-300"
       }`}
     >
       {hasImage ? (
@@ -431,7 +627,7 @@ function HeaderProperties({ theme, onChange }: { theme: FormTheme; onChange: (t:
                   key={v}
                   onClick={() => onChange({ ...theme, coverHeight: v })}
                   className={`flex flex-col items-center gap-1 py-2 rounded-lg border text-xs font-medium transition-colors ${
-                    (theme.coverHeight ?? "md") === v ? "border-blue-400 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                    (theme.coverHeight ?? "md") === v ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
                   }`}
                 >
                   <div className={`w-8 ${hh} bg-current rounded opacity-20`} />
@@ -469,31 +665,6 @@ function HeaderProperties({ theme, onChange }: { theme: FormTheme; onChange: (t:
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── CanvasDropZone ───────────────────────────────────────────────────────────
-
-function CanvasDropZone({ children, isEmpty }: { children: React.ReactNode; isEmpty: boolean }) {
-  const { isOver, setNodeRef } = useDroppable({ id: "canvas" });
-
-  return (
-    <div ref={setNodeRef} className="min-h-28">
-      {isEmpty ? (
-        <div className={`h-28 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors ${
-          isOver ? "border-blue-400 bg-blue-50/40" : "border-gray-200 bg-gray-50/60"
-        }`}>
-          <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isOver ? "bg-blue-100" : "bg-gray-100"}`}>
-            <Plus className={`h-4 w-4 ${isOver ? "text-blue-500" : "text-gray-400"}`} />
-          </div>
-          <p className="text-sm text-gray-400">Trascina un campo qui o clicca nel pannello sinistro</p>
-        </div>
-      ) : (
-        <div className={`space-y-1.5 rounded-xl transition-colors ${isOver ? "outline outline-2 outline-blue-300 outline-offset-4" : ""}`}>
-          {children}
-        </div>
-      )}
     </div>
   );
 }
@@ -552,7 +723,12 @@ function FieldProperties({
   }
 
   async function addRule() {
-    const other = fields.filter(f => f.id !== field.id && !LAYOUT_TYPES.has(f.type));
+    const other = [
+      ...STANDARD_CONDITION_FIELDS,
+      ...fields
+        .filter(f => f.id !== field.id && !LAYOUT_TYPES.has(f.type))
+        .map((sourceField) => ({ id: sourceField.id, label: sourceField.label })),
+    ];
     if (!other.length) { toast("Nessun campo disponibile per la condizione", { variant: "error" }); return; }
     await updateConds(prev => ({
       ...prev,
@@ -580,7 +756,12 @@ function FieldProperties({
     }));
   }
 
-  const otherFields = fields.filter(f => f.id !== field.id && !LAYOUT_TYPES.has(f.type));
+  const otherFields: ConditionSourceOption[] = [
+    ...STANDARD_CONDITION_FIELDS,
+    ...fields
+      .filter(f => f.id !== field.id && !LAYOUT_TYPES.has(f.type))
+      .map((sourceField) => ({ id: sourceField.id, label: sourceField.label })),
+  ];
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -682,14 +863,21 @@ function FieldProperties({
         {/* ── Conditional Logic ── */}
         <div className="p-4 space-y-2.5">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Logica condizionale</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Regole IF / THEN</p>
             <button onClick={addRule} className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-0.5">
               <Plus className="h-3 w-3" /> Regola
             </button>
           </div>
 
+          <div className="rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2">
+            <p className="text-[11px] font-semibold text-blue-800">Logica per singola risposta</p>
+            <p className="mt-1 text-[11px] text-blue-900/80">
+              Qui definisci una regola del tipo `SE campo = valore`, `ALLORA mostra questo campo nel form`.
+            </p>
+          </div>
+
           {showIf.rules.length === 0 ? (
-            <p className="text-xs text-gray-400 italic">Nessuna regola — campo sempre visibile</p>
+            <p className="text-xs text-gray-400 italic">Nessuna regola IF — il campo resta sempre visibile</p>
           ) : (
             <div className="space-y-2">
               {showIf.rules.length > 1 && (
@@ -711,7 +899,7 @@ function FieldProperties({
               {showIf.rules.map((rule, idx) => (
                 <div key={idx} className="rounded-lg border border-gray-100 bg-gray-50 p-2.5 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    {showIf.rules.length === 1 && <span className="text-xs text-gray-500">Mostra se</span>}
+                    {showIf.rules.length === 1 && <span className="text-xs text-gray-500">SE</span>}
                     {showIf.rules.length > 1 && <span className="text-xs font-medium text-gray-500">#{idx + 1}</span>}
                     <button onClick={() => removeRule(idx)} className="text-gray-300 hover:text-red-500 transition-colors">
                       <X className="h-3.5 w-3.5" />
@@ -724,7 +912,11 @@ function FieldProperties({
                     onChange={e => updateRule(idx, { fieldId: e.target.value })}
                   >
                     <option value="">Campo...</option>
-                    {otherFields.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                    {otherFields.map((sourceField) => (
+                      <option key={sourceField.id} value={sourceField.id}>
+                        {sourceField.label}
+                      </option>
+                    ))}
                   </select>
 
                   <select
@@ -750,6 +942,11 @@ function FieldProperties({
                       className="h-7 text-xs"
                     />
                   )}
+
+                  <div className="rounded-md bg-white px-2 py-1.5 text-[11px] text-gray-600">
+                    ALLORA mostra questo campo quando `{sourceFieldLabel(rule.fieldId, otherFields)}` {operatorLabel(rule.operator)}
+                    {!["is_empty", "is_not_empty"].includes(rule.operator) ? ` "${rule.value || "..."}"` : ""}
+                  </div>
                 </div>
               ))}
             </div>
@@ -812,7 +1009,7 @@ function ThemePanel({ theme, onChange, onClose }: { theme: FormTheme; onChange: 
               <button
                 key={r}
                 onClick={() => onChange({ ...theme, radius: r })}
-                className={`h-8 text-[11px] font-medium transition-colors ${theme.radius === r ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                className={`h-8 text-[11px] font-medium transition-colors ${theme.radius === r ? "bg-[rgba(109,98,243,0.12)] text-[var(--accent)] border border-[rgba(109,98,243,0.18)]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-transparent"}`}
                 style={{ borderRadius: radius }}
               >
                 {r === "none" ? "Nessuno" : r === "sm" ? "Piccolo" : r === "md" ? "Medio" : "Grande"}
@@ -908,6 +1105,11 @@ function FormPreview({ fields, theme, sessionConfig, onClose }: {
         ) : f.type === "select" ? (
           <div className="h-10 border border-gray-200 px-3 flex items-center justify-between bg-gray-50" style={{ borderRadius: br }}>
             <span className="text-sm text-gray-400">{opts[0] ?? "Seleziona..."}</span>
+            <ChevronDown className="h-4 w-4 text-gray-400" />
+          </div>
+        ) : f.type === "registration_path" ? (
+          <div className="h-10 border border-gray-200 px-3 flex items-center justify-between bg-gray-50" style={{ borderRadius: br }}>
+            <span className="text-sm text-gray-400">Seleziona tipo di registrazione...</span>
             <ChevronDown className="h-4 w-4 text-gray-400" />
           </div>
         ) : f.type === "radio" ? (
@@ -1114,18 +1316,136 @@ function PluginsPanel({
   );
 }
 
+function PathsPanel({
+  paths,
+  groups,
+  saving,
+  onChange,
+  onSave,
+}: {
+  paths: RegistrationPath[];
+  groups: EventGroup[];
+  saving: boolean;
+  onChange: (paths: RegistrationPath[]) => void;
+  onSave: () => Promise<void>;
+}) {
+  function updatePath(pathId: string, patch: Partial<RegistrationPath>) {
+    onChange(paths.map((path) => path.id === pathId ? { ...path, ...patch } : path));
+  }
+
+  function addPath() {
+    onChange([
+      ...paths,
+      {
+        id: `path_${Date.now()}`,
+        name: "Nuovo percorso",
+        description: "",
+        groupId: groups[0]?.id ?? null,
+        active: true,
+        formMode: "EVENT_DEFAULT",
+        flowMode: "GROUP_SCOPED",
+        emailTemplateIds: {},
+      },
+    ]);
+  }
+
+  function removePath(pathId: string) {
+    onChange(paths.filter((path) => path.id !== pathId));
+  }
+
+  return (
+    <div className="bg-white border-b border-gray-100 px-4 py-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">Percorsi di registrazione</p>
+          <p className="text-xs text-gray-500">Ogni percorso eredita il form base evento e puo avere email e flow dedicati.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={addPath} className="h-8 text-xs gap-1.5">
+          <Plus className="h-3.5 w-3.5" /> Nuovo percorso
+        </Button>
+      </div>
+
+      <div className="rounded-xl border border-[rgba(109,98,243,0.12)] bg-[rgba(109,98,243,0.05)] px-3 py-2">
+        <p className="text-[11px] font-semibold text-[var(--accent)]">Come funziona</p>
+        <p className="mt-1 text-[11px] text-slate-600">
+          Il form base contiene i campi comuni a tutti. Quando selezioni un percorso, aggiungi solo i campi extra dedicati a quel tipo di registrazione.
+        </p>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-2">
+        {paths.map((path) => (
+          <div key={path.id} className="rounded-xl border border-gray-200 bg-gray-50/70 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">Percorso</span>
+              <span className="rounded-full bg-white px-2 py-0.5 text-[10px] text-gray-500 border border-gray-200">
+                {groups.find((group) => group.id === path.groupId)?.name ?? "Senza gruppo"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={path.name}
+                onChange={(e) => updatePath(path.id, { name: e.target.value })}
+                className="h-8 text-xs"
+                placeholder="Nome percorso"
+              />
+              <button
+                onClick={() => removePath(path.id)}
+                className="h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-400 hover:text-red-500"
+                title="Elimina percorso"
+              >
+                <Trash2 className="h-3.5 w-3.5 mx-auto" />
+              </button>
+            </div>
+            <Input
+              value={path.description}
+              onChange={(e) => updatePath(path.id, { description: e.target.value })}
+              className="h-8 text-xs"
+              placeholder="Descrizione breve del percorso"
+            />
+            <select
+              className="h-8 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-xs"
+              value={path.groupId ?? ""}
+              onChange={(e) => updatePath(path.id, { groupId: e.target.value || null })}
+            >
+              <option value="">Nessun gruppo dedicato</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+
+      <Button size="sm" onClick={onSave} disabled={saving} className="gap-1.5 h-8 text-xs">
+        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+        Salva percorsi
+      </Button>
+    </div>
+  );
+}
+
 // ─── Main FormBuilder ─────────────────────────────────────────────────────────
 
-export function FormBuilder({ eventId, initialFields }: Props) {
+export function FormBuilder({ eventId, eventSlug, initialFields }: Props) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const fromFlow = searchParams.get("fromFlow") === "1";
+  const requestedPathId = searchParams.get("pathId") ?? "";
   const [fields, setFields] = useState<FormField[]>(initialFields);
   const [groups, setGroups] = useState<EventGroup[]>([]);
+  const [registrationPaths, setRegistrationPaths] = useState<RegistrationPath[]>([]);
+  const [activePathId, setActivePathId] = useState<string>("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draggingActive, setDraggingActive] = useState<Active | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
+  const [showPaths, setShowPaths] = useState(false);
   const [savingPlugins, setSavingPlugins] = useState(false);
+  const [savingPaths, setSavingPaths] = useState(false);
   const [formTheme, setFormTheme] = useState<FormTheme>({
     primaryColor: "#3B82F6", bgColor: "#FFFFFF", radius: "md", font: "inter", button: "filled",
   });
@@ -1143,7 +1463,8 @@ export function FormBuilder({ eventId, initialFields }: Props) {
       fetch(`/api/events/${eventId}/plugins/sessions`),
       fetch(`/api/events/${eventId}/plugins/registration`),
       fetch(`/api/events/${eventId}/plugins/form-theme`),
-    ]).then(async ([gRes, sRes, rRes, tRes]) => {
+      fetch(`/api/events/${eventId}/paths`),
+    ]).then(async ([gRes, sRes, rRes, tRes, pRes]) => {
       if (gRes.ok) setGroups(await gRes.json());
       if (sRes.ok) setSessionConfig(await sRes.json());
       if (rRes.ok) setRegConfig(await rRes.json());
@@ -1151,11 +1472,35 @@ export function FormBuilder({ eventId, initialFields }: Props) {
         const t = await tRes.json();
         if (t.primaryColor) setFormTheme(t);
       }
+      if (pRes.ok) {
+        const paths = (await pRes.json()) as RegistrationPathsConfig;
+        setRegistrationPaths(paths.paths ?? []);
+        if (requestedPathId && (paths.paths ?? []).some((path) => path.id === requestedPathId)) {
+          setActivePathId(requestedPathId);
+        } else if ((paths.paths ?? []).length > 0) {
+          setActivePathId(paths.paths[0]?.id ?? "");
+        }
+      }
     }).catch(() => {});
-  }, [eventId]);
+  }, [eventId, requestedPathId]);
+
+  useEffect(() => {
+    if (!requestedPathId) return;
+    if (registrationPaths.some((path) => path.id === requestedPathId)) {
+      setActivePathId(requestedPathId);
+    }
+  }, [registrationPaths, requestedPathId]);
 
   const sorted = useMemo(() => [...fields].sort((a, b) => a.order - b.order), [fields]);
-  const fieldIds = useMemo(() => sorted.map(f => f.id), [sorted]);
+  const activePath = useMemo(
+    () => registrationPaths.find((path) => path.id === activePathId) ?? null,
+    [registrationPaths, activePathId]
+  );
+  const canvasFields = useMemo(
+    () => activePath ? sorted.filter((field) => fieldVisibleForPath(field, activePath.groupId)) : sorted,
+    [sorted, activePath]
+  );
+  const fieldIds = useMemo(() => canvasFields.map(f => f.id), [canvasFields]);
   const selectedField = useMemo(() => fields.find(f => f.id === selectedId) ?? null, [fields, selectedId]);
 
   async function persistOrder(reordered: FormField[]) {
@@ -1169,6 +1514,10 @@ export function FormBuilder({ eventId, initialFields }: Props) {
   async function addField(type: string, beforeId?: string) {
     const ti = getTypeInfo(type);
     const defaultOptions = HAS_OPTIONS.has(type) ? ["Opzione 1", "Opzione 2", "Opzione 3"] : undefined;
+    const defaultConditions = activePath?.groupId
+      ? { visibility: { mode: "GROUPS", groupIds: [activePath.groupId] } }
+      : { visibility: { mode: "ALL", groupIds: [] } };
+
     try {
       const res = await fetch(`/api/events/${eventId}/form`, {
         method: "POST",
@@ -1179,7 +1528,7 @@ export function FormBuilder({ eventId, initialFields }: Props) {
           placeholder: null,
           required: false,
           options: defaultOptions ?? null,
-          conditions: { visibility: { mode: "ALL", groupIds: [] } },
+          conditions: defaultConditions,
         }),
       });
       if (!res.ok) throw new Error();
@@ -1261,6 +1610,25 @@ export function FormBuilder({ eventId, initialFields }: Props) {
     }
   }
 
+  async function savePaths() {
+    setSavingPaths(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/paths`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paths: registrationPaths }),
+      });
+      if (!res.ok) throw new Error();
+      const payload = await res.json() as RegistrationPathsConfig;
+      setRegistrationPaths(payload.paths ?? []);
+      toast("Percorsi salvati", { variant: "success" });
+    } catch {
+      toast("Errore nel salvataggio percorsi", { variant: "error" });
+    } finally {
+      setSavingPaths(false);
+    }
+  }
+
   function handleDragStart({ active }: DragStartEvent) {
     setDraggingActive(active);
   }
@@ -1289,214 +1657,336 @@ export function FormBuilder({ eventId, initialFields }: Props) {
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="flex" style={{ height: "calc(100vh - 7rem)" }}>
-
-        {/* ── Left: Field Palette ─────────────────────────────────────── */}
-        <div className="w-52 flex-shrink-0 bg-white border-r border-gray-100 overflow-y-auto flex flex-col">
-          <div className="px-3 pt-3 pb-1">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 mb-1">Tipi di campo</p>
-          </div>
-          <div className="flex-1 overflow-y-auto px-2 pb-4">
-            {FIELD_CATEGORIES.map(cat => (
-              <div key={cat.name} className="mb-3">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide px-2 py-1.5">{cat.name}</p>
-                <div className="space-y-0.5">
-                  {cat.items.map(item => (
-                    <PaletteItem
-                      key={item.type}
-                      type={item.type}
-                      label={item.label}
-                      icon={item.icon}
-                      color={item.color}
-                      bg={item.bg}
-                      onAdd={() => addField(item.type)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+    <>
+      {fromFlow && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-indigo-600 text-white text-sm flex-shrink-0">
+          <button
+            onClick={() => {
+              const ret = sessionStorage.getItem("phorma_flow_return");
+              if (ret) {
+                try {
+                  const { eventId: evId } = JSON.parse(ret) as { eventId: string };
+                  router.push(`/events/${evId}/flow`);
+                  return;
+                } catch { /* fallthrough */ }
+              }
+              router.push(`/events/${eventId}/flow`);
+            }}
+            className="flex items-center gap-1.5 font-medium hover:underline"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Torna al Flow Builder
+          </button>
+          <span className="text-indigo-300">·</span>
+          <span className="text-indigo-200">Stai modificando il form da un nodo Flow</span>
         </div>
+      )}
 
-        {/* ── Center: Canvas ──────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-w-0 bg-gray-50">
-          {/* Top bar */}
-          <div className="h-11 bg-white border-b border-gray-100 flex items-center justify-between px-4 flex-shrink-0 relative">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-gray-700">Form registrazione</span>
-              <Badge variant="secondary" className="text-xs font-normal">
-                {sorted.length + 6} campi
-              </Badge>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex h-full overflow-hidden">
+
+          {/* ── LEFT PANEL — field library ─────────────────────────────── */}
+          <aside className="w-56 bg-white border-r border-gray-200 flex flex-col overflow-hidden flex-shrink-0">
+            <div className="p-3 border-b border-gray-100 flex-shrink-0">
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Campi disponibili</p>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex-1 overflow-y-auto p-2">
+              {FIELD_CATEGORIES.map(cat => (
+                <div key={cat.name} className="mb-3">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide px-2 py-1.5">{cat.name}</p>
+                  <div className="space-y-0.5">
+                    {cat.items.map(item => (
+                      <PaletteItem
+                        key={item.type}
+                        type={item.type}
+                        label={item.label}
+                        icon={item.icon}
+                        color={item.color}
+                        bg={item.bg}
+                        onAdd={() => addField(item.type)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Theme settings button at bottom */}
+            <div className="p-2 border-t border-gray-100 flex-shrink-0">
+              <div className="relative">
+                <button
+                  onClick={() => setShowTheme(!showTheme)}
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    showTheme
+                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      : "text-gray-600 hover:bg-gray-50 border border-transparent"
+                  }`}
+                >
+                  <Palette className="h-3.5 w-3.5" />
+                  Tema & colori
+                </button>
+                {showTheme && (
+                  <div className="absolute bottom-full left-0 mb-1 z-50">
+                    <ThemePanel theme={formTheme} onChange={saveTheme} onClose={() => setShowTheme(false)} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+
+          {/* ── CENTER PANEL — WYSIWYG canvas ──────────────────────────── */}
+          <main className="flex-1 overflow-hidden flex flex-col bg-[#F3F4F6] min-w-0">
+            {/* Canvas toolbar */}
+            <div className="h-10 bg-white border-b border-gray-200 flex items-center gap-2 px-4 flex-shrink-0">
+              <select
+                className="h-7 rounded-lg border border-gray-200 bg-white px-2.5 text-xs"
+                value={activePathId}
+                onChange={(e) => setActivePathId(e.target.value)}
+              >
+                <option value="">Form base evento</option>
+                {registrationPaths.map((path) => (
+                  <option key={path.id} value={path.id}>
+                    {path.name}
+                  </option>
+                ))}
+              </select>
+
+              <Badge variant="outline" className="text-[10px]">
+                {activePath ? `Vista: ${activePath.name}` : "Vista: form base"}
+              </Badge>
+
+              <div className="flex-1" />
+
+              <button
+                onClick={() => setShowPaths(!showPaths)}
+                className={`px-3 h-7 rounded-lg text-xs font-medium transition-colors ${showPaths ? "bg-[rgba(109,98,243,0.12)] text-[var(--accent)] border border-[rgba(109,98,243,0.18)]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-transparent"}`}
+              >
+                Percorsi
+              </button>
               <button
                 onClick={() => setShowPlugins(!showPlugins)}
-                className={`px-3 h-7 rounded-lg text-xs font-medium transition-colors ${showPlugins ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                className={`px-3 h-7 rounded-lg text-xs font-medium transition-colors ${showPlugins ? "bg-[rgba(109,98,243,0.12)] text-[var(--accent)] border border-[rgba(109,98,243,0.18)]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-transparent"}`}
               >
                 Sessioni & Inviti
               </button>
-              <div className="relative">
-                <button
-                  onClick={() => { setShowTheme(!showTheme); }}
-                  className={`h-7 w-7 rounded-lg flex items-center justify-center transition-colors ${showTheme ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                  title="Personalizza tema"
-                >
-                  <Palette className="h-3.5 w-3.5" />
-                </button>
-                {showTheme && (
-                  <ThemePanel theme={formTheme} onChange={saveTheme} onClose={() => setShowTheme(false)} />
-                )}
-              </div>
               <button
                 onClick={() => setShowPreview(true)}
-                className="h-7 px-3 rounded-lg flex items-center gap-1.5 bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+                className="h-7 px-3 rounded-lg flex items-center gap-1.5 bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
               >
                 <Eye className="h-3.5 w-3.5" /> Anteprima
               </button>
             </div>
-          </div>
 
-          {/* Plugins panel */}
-          {showPlugins && (
-            <PluginsPanel
-              regConfig={regConfig}
-              sessionConfig={sessionConfig}
-              onRegChange={setRegConfig}
-              onSessionChange={setSessionConfig}
-              saving={savingPlugins}
-              onSave={async () => {
-                setSavingPlugins(true);
-                try {
-                  await Promise.all([
-                    fetch(`/api/events/${eventId}/plugins/registration`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(regConfig) }),
-                    fetch(`/api/events/${eventId}/plugins/sessions`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sessionConfig) }),
-                  ]);
-                  toast("Configurazione salvata", { variant: "success" });
-                } catch {
-                  toast("Errore nel salvataggio", { variant: "error" });
-                } finally {
-                  setSavingPlugins(false);
-                }
-              }}
-            />
-          )}
-
-          {/* Scrollable canvas */}
-          <div className="flex-1 overflow-y-auto p-5">
-            {/* Standard fields */}
-            <div className="mb-5">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Campi standard — sempre inclusi</p>
-              <div className="space-y-1">
-                {STANDARD_FIELDS.map(f => (
-                  <div key={f.label} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white border border-gray-100">
-                    <GripVertical className="h-4 w-4 text-gray-200" />
-                    <div className="h-6 w-6 rounded-md bg-gray-100 flex items-center justify-center">
-                      <Type className="h-3 w-3 text-gray-400" />
-                    </div>
-                    <span className="text-sm text-gray-500 flex-1">{f.label}</span>
-                    {f.required && <span className="text-xs text-gray-400">Obbligatorio</span>}
-                    <Badge variant="outline" className="text-[10px] text-gray-300 border-gray-200 font-normal">Standard</Badge>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Header block */}
-            <HeaderBlock
-              theme={formTheme}
-              isSelected={selectedId === "__header__"}
-              onClick={() => setSelectedId(prev => prev === "__header__" ? null : "__header__")}
-            />
-
-            {/* Custom fields */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Campi personalizzati</p>
-              <SortableContext items={fieldIds} strategy={verticalListSortingStrategy}>
-                <CanvasDropZone isEmpty={sorted.length === 0}>
-                  {sorted.map(field => (
-                    <SortableFieldCard
-                      key={field.id}
-                      field={field}
-                      isSelected={selectedId === field.id}
-                      onSelect={() => setSelectedId(prev => prev === field.id ? null : field.id)}
-                      onDelete={() => deleteField(field.id)}
-                      onToggleRequired={() => toggleRequired(field)}
-                      deleting={deletingId === field.id}
-                    />
-                  ))}
-                </CanvasDropZone>
-              </SortableContext>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Right: Properties ───────────────────────────────────────── */}
-        <div className="w-72 flex-shrink-0 bg-white border-l border-gray-100 flex flex-col">
-          {selectedId === "__header__" ? (
-            <HeaderProperties theme={formTheme} onChange={saveTheme} />
-          ) : selectedField ? (
-            <FieldProperties
-              key={selectedField.id}
-              field={selectedField}
-              fields={sorted}
-              groups={groups}
-              onPatch={patchField}
-            />
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <div className="h-12 w-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
-                <Settings2 className="h-5 w-5 text-gray-400" />
-              </div>
-              <p className="text-sm font-semibold text-gray-700 mb-1">Proprietà campo</p>
-              <p className="text-xs text-gray-400 leading-relaxed">
-                Seleziona un campo nel canvas per modificarne le impostazioni, o trascina un tipo dal pannello sinistro.
-              </p>
-              <div className="mt-5 p-3 rounded-xl bg-gray-50 text-left w-full">
-                <p className="text-xs font-semibold text-gray-500 mb-2">Suggerimento</p>
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  Trascina i tipi di campo direttamente in posizione nel canvas, oppure clicca per aggiungerli alla fine.
+            {/* Context info bar */}
+            <div className={`px-4 py-2 border-b flex-shrink-0 ${activePath ? "border-cyan-100 bg-cyan-50/40" : "border-[rgba(109,98,243,0.10)] bg-[rgba(109,98,243,0.04)]"}`}>
+              <div className="flex items-center justify-between gap-3">
+                <p className={`text-xs font-medium ${activePath ? "text-cyan-900" : "text-slate-700"}`}>
+                  {activePath ? `Percorso: ${activePath.name}` : "Form base evento"}
+                  <span className={`ml-2 font-normal ${activePath ? "text-cyan-700" : "text-slate-500"}`}>
+                    {activePath
+                      ? "— campi visibili solo a questo percorso"
+                      : "— campi comuni a tutti i partecipanti"}
+                  </span>
                 </p>
+                {activePath && (
+                  <div className="flex items-center gap-2">
+                    <Button asChild size="sm" variant="outline" className="h-6 text-xs">
+                      <Link href={`/register/${eventSlug}?pathId=${activePath.id}`} target="_blank">
+                        Apri form
+                      </Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline" className="h-6 text-xs">
+                      <Link href={`/events/${eventId}/emails?pathId=${activePath.id}`}>
+                        Email
+                      </Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline" className="h-6 text-xs">
+                      <Link href={`/events/${eventId}/flow?pathId=${activePath.id}`}>
+                        Flow
+                      </Link>
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+
+            {/* Collapsible panels */}
+            {showPaths && (
+              <PathsPanel
+                paths={registrationPaths}
+                groups={groups}
+                saving={savingPaths}
+                onChange={setRegistrationPaths}
+                onSave={savePaths}
+              />
+            )}
+            {showPlugins && (
+              <PluginsPanel
+                regConfig={regConfig}
+                sessionConfig={sessionConfig}
+                onRegChange={setRegConfig}
+                onSessionChange={setSessionConfig}
+                saving={savingPlugins}
+                onSave={async () => {
+                  setSavingPlugins(true);
+                  try {
+                    await Promise.all([
+                      fetch(`/api/events/${eventId}/plugins/registration`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(regConfig) }),
+                      fetch(`/api/events/${eventId}/plugins/sessions`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sessionConfig) }),
+                    ]);
+                    toast("Configurazione salvata", { variant: "success" });
+                  } catch {
+                    toast("Errore nel salvataggio", { variant: "error" });
+                  } finally {
+                    setSavingPlugins(false);
+                  }
+                }}
+              />
+            )}
+
+            {/* Scrollable WYSIWYG canvas */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-[680px] mx-auto py-8 px-4">
+
+                {/* Header block (cover image / title) */}
+                <HeaderBlock
+                  theme={formTheme}
+                  isSelected={selectedId === "__header__"}
+                  onClick={() => setSelectedId(prev => prev === "__header__" ? null : "__header__")}
+                />
+
+                {/* Standard (non-removable) fields: Nome, Cognome, Email */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-3 space-y-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest -mb-1">Campi standard</p>
+                  {STANDARD_FIELDS.map(f => (
+                    <div key={f.label}>
+                      <label className="block text-sm font-medium text-gray-800 mb-1.5">
+                        {f.label} <span className="text-red-500">*</span>
+                        <span className="ml-2 text-[10px] font-normal text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">Obbligatorio</span>
+                      </label>
+                      <input
+                        type={f.type === "email" ? "email" : "text"}
+                        disabled
+                        placeholder={`${f.label.toLowerCase()}...`}
+                        className="w-full h-10 border border-gray-200 rounded-lg px-3 text-sm text-gray-400 bg-gray-50"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Sortable custom fields */}
+                <SortableContext items={fieldIds} strategy={verticalListSortingStrategy}>
+                  <CanvasDropZone isEmpty={canvasFields.length === 0}>
+                    {canvasFields.map(field => (
+                      <SortableCanvasCard
+                        key={field.id}
+                        field={field}
+                        isSelected={selectedId === field.id}
+                        onSelect={() => setSelectedId(prev => prev === field.id ? null : field.id)}
+                        onDelete={() => deleteField(field.id)}
+                        onToggleRequired={() => toggleRequired(field)}
+                        deleting={deletingId === field.id}
+                      />
+                    ))}
+                  </CanvasDropZone>
+                </SortableContext>
+
+                {/* Drop zone / add hint */}
+                {canvasFields.length > 0 && (
+                  <div
+                    className="border-2 border-dashed border-gray-200 rounded-2xl p-5 text-center text-gray-400 text-sm mt-3 hover:border-indigo-300 hover:text-indigo-400 transition-colors cursor-pointer"
+                    onClick={() => addField("text")}
+                  >
+                    + Trascina un campo qui o clicca per aggiungere
+                  </div>
+                )}
+
+                {/* Bottom save bar */}
+                <div className="flex items-center justify-between mt-6 pb-8">
+                  <span className="text-xs text-gray-400">{canvasFields.length} campi aggiuntivi</span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowPreview(true)}
+                      className="gap-1.5 text-xs h-8"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Anteprima
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+
+          {/* ── RIGHT PANEL — field properties ─────────────────────────── */}
+          <aside className="w-72 bg-white border-l border-gray-200 flex flex-col overflow-hidden flex-shrink-0">
+            {selectedId === "__header__" ? (
+              <HeaderProperties theme={formTheme} onChange={saveTheme} />
+            ) : selectedField ? (
+              <FieldProperties
+                key={selectedField.id}
+                field={selectedField}
+                fields={sorted}
+                groups={groups}
+                onPatch={patchField}
+              />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                <div className="h-12 w-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+                  <Settings2 className="h-5 w-5 text-gray-400" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700 mb-1">Proprietà campo</p>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Seleziona un campo nel canvas per modificarne le impostazioni, oppure scegli prima il percorso da personalizzare e poi trascina i campi dal pannello sinistro.
+                </p>
+                <div className="mt-5 p-3 rounded-xl bg-gray-50 text-left w-full">
+                  <p className="text-xs font-semibold text-gray-500 mb-2">Suggerimento</p>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Trascina i tipi di campo direttamente in posizione nel canvas, oppure clicca per aggiungerli alla fine.
+                  </p>
+                </div>
+              </div>
+            )}
+          </aside>
         </div>
-      </div>
 
-      {/* Drag overlay */}
-      <DragOverlay dropAnimation={{ duration: 150, easing: "ease" }}>
-        {draggingActive && (() => {
-          const isPalette = draggingActive.data.current?.type === "palette";
-          const ti = isPalette
-            ? getTypeInfo(draggingActive.data.current?.fieldType as string)
-            : getTypeInfo(fields.find(f => f.id === draggingActive.id)?.type ?? "");
-          const Icon = ti.icon;
-          const label = isPalette ? ti.label : (fields.find(f => f.id === draggingActive.id)?.label ?? ti.label);
-          return (
-            <div className="bg-white border-2 border-blue-400 rounded-xl px-3 py-2.5 shadow-xl flex items-center gap-2 pointer-events-none">
-              <div className={`h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 ${ti.bg}`}>
-                <Icon className={`h-3.5 w-3.5 ${ti.color}`} />
+        {/* Drag overlay */}
+        <DragOverlay dropAnimation={{ duration: 150, easing: "ease" }}>
+          {draggingActive && (() => {
+            const isPalette = draggingActive.data.current?.type === "palette";
+            const ti = isPalette
+              ? getTypeInfo(draggingActive.data.current?.fieldType as string)
+              : getTypeInfo(fields.find(f => f.id === draggingActive.id)?.type ?? "");
+            const Icon = ti.icon;
+            const label = isPalette ? ti.label : (fields.find(f => f.id === draggingActive.id)?.label ?? ti.label);
+            return (
+              <div className="bg-white border-2 border-indigo-400 rounded-xl px-3 py-2.5 shadow-xl flex items-center gap-2 pointer-events-none">
+                <div className={`h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 ${ti.bg}`}>
+                  <Icon className={`h-3.5 w-3.5 ${ti.color}`} />
+                </div>
+                <span className="text-sm font-semibold text-gray-900">{label}</span>
               </div>
-              <span className="text-sm font-semibold text-gray-900">{label}</span>
-            </div>
-          );
-        })()}
-      </DragOverlay>
+            );
+          })()}
+        </DragOverlay>
 
-      {/* Preview modal */}
-      {showPreview && (
-        <FormPreview
-          fields={sorted}
-          theme={formTheme}
-          sessionConfig={sessionConfig}
-          onClose={() => setShowPreview(false)}
-        />
-      )}
-    </DndContext>
+        {/* Preview modal */}
+        {showPreview && (
+          <FormPreview
+            fields={canvasFields}
+            theme={formTheme}
+            sessionConfig={sessionConfig}
+            onClose={() => setShowPreview(false)}
+          />
+        )}
+      </DndContext>
+    </>
   );
 }

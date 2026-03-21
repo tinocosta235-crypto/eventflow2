@@ -58,7 +58,6 @@ Ti contatteremo appena si libera un posto. Grazie per la pazienza!`,
 
 export default function EmailsPage() {
   const [selected, setSelected] = useState(DEFAULT_TEMPLATES[0]);
-  const [editing, setEditing] = useState(false);
   const [subject, setSubject] = useState(DEFAULT_TEMPLATES[0].subject);
   const [body, setBody] = useState(DEFAULT_TEMPLATES[0].body);
   const [preview, setPreview] = useState(false);
@@ -68,7 +67,6 @@ export default function EmailsPage() {
     setSelected(t);
     setSubject(t.subject);
     setBody(t.body);
-    setEditing(false);
     setPreview(false);
   }
 
@@ -139,7 +137,7 @@ export default function EmailsPage() {
                 <Badge className={typeColors[selected.type]}>{typeLabels[selected.type]}</Badge>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setPreview(!preview); setEditing(false); }} className="gap-2 text-xs">
+                <Button variant="outline" size="sm" onClick={() => { setPreview(!preview); }} className="gap-2 text-xs">
                   <Eye className="h-3.5 w-3.5" />
                   {preview ? "Modifica" : "Anteprima"}
                 </Button>

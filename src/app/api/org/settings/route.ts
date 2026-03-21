@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireOrg, requireOwner } from "@/lib/auth-helpers";
+import { requireOrg, requireOrgAdmin } from "@/lib/auth-helpers";
+import { logAudit } from "@/lib/audit";
 
 // GET /api/org/settings
 export async function GET() {
@@ -17,9 +18,9 @@ export async function GET() {
 
 // PATCH /api/org/settings
 export async function PATCH(req: NextRequest) {
-  const result = await requireOwner();
+  const result = await requireOrgAdmin();
   if ("error" in result) return result.error;
-  const { orgId } = result;
+  const { orgId, userId } = result;
 
   const { name, website, logo } = await req.json();
   if (!name) return NextResponse.json({ error: "Nome organizzazione richiesto" }, { status: 400 });
@@ -32,6 +33,12 @@ export async function PATCH(req: NextRequest) {
       logo: logo || null,
     },
     select: { id: true, name: true, slug: true, website: true, logo: true, plan: true },
+  });
+  await logAudit({
+    action: "ORG_SETTINGS_UPDATED",
+    orgId,
+    actorId: userId,
+    metadata: { website: updated.website ?? null },
   });
   return NextResponse.json(updated);
 }

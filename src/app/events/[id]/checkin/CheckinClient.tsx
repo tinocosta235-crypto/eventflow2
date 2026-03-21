@@ -1,12 +1,12 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Search, CheckCircle2, XCircle, QrCode, Users, Clock, Loader2,
-  RotateCcw, Camera, CameraOff,
+  RotateCcw, Camera, CameraOff, Printer,
 } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { getStatusColor, getStatusLabel, formatDateTime } from "@/lib/utils";
@@ -40,6 +40,7 @@ interface Props {
 export function CheckinClient({ event, initialCheckedIn, total }: Props) {
   const [regs, setRegs] = useState<Reg[]>(event.registrations);
   const [search, setSearch] = useState("");
+  const [quickCode, setQuickCode] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
   const [checkedInCount, setCheckedInCount] = useState(initialCheckedIn);
   const [qrTarget, setQrTarget] = useState<Reg | null>(null);
@@ -93,6 +94,18 @@ export function CheckinClient({ event, initialCheckedIn, total }: Props) {
     }
   }
 
+  async function checkInByCode() {
+    const code = quickCode.trim();
+    if (!code) return;
+    const reg = regs.find((r) => r.registrationCode.toLowerCase() === code.toLowerCase());
+    if (!reg) {
+      toast("Codice non trovato", { variant: "error" });
+      return;
+    }
+    await doCheckIn(reg.id, "code");
+    setQuickCode("");
+  }
+
   async function undoCheckIn(regId: string) {
     setLoading(regId);
     try {
@@ -114,7 +127,7 @@ export function CheckinClient({ event, initialCheckedIn, total }: Props) {
     }
   }
 
-  const startScanner = useCallback(async () => {
+  async function startScanner() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       streamRef.current = stream;
@@ -147,12 +160,62 @@ export function CheckinClient({ event, initialCheckedIn, total }: Props) {
     } catch {
       toast("Camera non disponibile", { variant: "error" });
     }
-  }, [regs, scanning]);
+  }
 
   function stopScanner() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setScanning(false);
+  }
+
+  async function printBadge(reg: Reg) {
+    try {
+      const res = await fetch(`/api/events/${event.id}/badge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationId: reg.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error ?? "Errore generazione badge", { variant: "error" });
+        return;
+      }
+
+      const html = `
+        <html>
+          <head>
+            <title>Badge ${data.badge.fullName}</title>
+            <style>
+              body{font-family:Arial,sans-serif;padding:20px;background:#f3f4f6;}
+              .badge{width:420px;height:260px;border:2px solid #0ea5e9;border-radius:14px;background:white;padding:22px;box-sizing:border-box;}
+              .title{font-size:13px;color:#0369a1;margin-bottom:12px}
+              .name{font-size:30px;font-weight:700;color:#0f172a;line-height:1.1;margin-bottom:8px}
+              .company{font-size:14px;color:#475569;margin-bottom:16px}
+              .code{font-family:monospace;font-size:16px;font-weight:700;color:#0f172a;margin-top:10px}
+            </style>
+          </head>
+          <body>
+            <div class="badge">
+              ${data.config.eventTitleVisible ? `<div class="title">${data.badge.eventTitle}</div>` : ""}
+              <div class="name">${data.badge.fullName}</div>
+              ${data.config.companyVisible && data.badge.company ? `<div class="company">${data.badge.company}</div>` : ""}
+              <div class="code">${data.badge.registrationCode}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:36px">${data.config.footerText}</div>
+            </div>
+            <script>window.onload=function(){window.print();}</script>
+          </body>
+        </html>
+      `;
+      const win = window.open("", "_blank");
+      if (!win) {
+        toast("Popup bloccato: abilita popup per stampare", { variant: "warning" });
+        return;
+      }
+      win.document.write(html);
+      win.document.close();
+    } catch {
+      toast("Errore durante la stampa badge", { variant: "error" });
+    }
   }
 
   const pct = total > 0 ? Math.round((checkedInCount / total) * 100) : 0;
@@ -199,24 +262,38 @@ export function CheckinClient({ event, initialCheckedIn, total }: Props) {
         </div>
       )}
 
-      {/* Scanner + Search */}
-      <div className="flex gap-3">
+      {/* Scanner + Search + Fast code */}
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Cerca nome, email o codice..."
+              className="pl-9 h-11 text-base"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <Button
+            variant={scanning ? "destructive" : "outline"}
+            onClick={scanning ? stopScanner : startScanner}
+            className="gap-2 h-11"
+          >
+            {scanning ? <><CameraOff className="h-4 w-4" />Stop</>  : <><Camera className="h-4 w-4" />Scansiona QR</>}
+          </Button>
+        </div>
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Cerca nome, email o codice..."
-            className="pl-9 h-11 text-base"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoFocus
+            placeholder="Fast check-in: inserisci codice registrazione"
+            className="h-10"
+            value={quickCode}
+            onChange={(e) => setQuickCode(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") checkInByCode(); }}
           />
         </div>
-        <Button
-          variant={scanning ? "destructive" : "outline"}
-          onClick={scanning ? stopScanner : startScanner}
-          className="gap-2 h-11"
-        >
-          {scanning ? <><CameraOff className="h-4 w-4" />Stop</>  : <><Camera className="h-4 w-4" />Scansiona QR</>}
+        <Button onClick={checkInByCode} className="w-fit gap-2">
+          <CheckCircle2 className="h-4 w-4" />Check-in da codice
         </Button>
       </div>
 
@@ -268,6 +345,13 @@ export function CheckinClient({ event, initialCheckedIn, total }: Props) {
                   className="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400 hover:text-gray-700"
                 >
                   <QrCode className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => printBadge(reg)}
+                  className="h-8 w-8 rounded-lg border border-cyan-200 bg-cyan-50 flex items-center justify-center text-cyan-700 hover:bg-cyan-100"
+                  title="Stampa badge"
+                >
+                  <Printer className="h-4 w-4" />
                 </button>
                 {isCheckedIn ? (
                   <Button

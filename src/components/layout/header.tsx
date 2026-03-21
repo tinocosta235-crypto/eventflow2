@@ -9,9 +9,12 @@ interface HeaderProps {
 export function Header({ title, subtitle, actions }: HeaderProps) {
   return (
     <div
-      className="px-8 flex items-center justify-between border-b border-white/10 bg-slate-950/35 backdrop-blur-lg"
+      className="px-8 flex items-center justify-between border-b backdrop-blur-lg"
       style={{
+        borderColor: "rgba(109, 98, 243, 0.12)",
+        background: "linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 255, 0.90))",
         height: "72px",
+        boxShadow: "0 8px 24px rgba(48, 61, 92, 0.04)",
       }}
     >
       <div>

@@ -5,7 +5,6 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import {
   ArrowLeft, Download, Search, Filter, RefreshCw, Loader2,
@@ -69,17 +68,6 @@ interface Event {
 
 type SortDir = "asc" | "desc"
 
-// ── Color map ─────────────────────────────────────────────────────────────────
-
-const GROUP_COLORS: Record<string, string> = {
-  blue: "bg-blue-100 text-blue-700",
-  green: "bg-green-100 text-green-700",
-  purple: "bg-purple-100 text-purple-700",
-  orange: "bg-orange-100 text-orange-700",
-  red: "bg-red-100 text-red-700",
-  indigo: "bg-indigo-100 text-indigo-700",
-}
-
 // ── EditableCell ──────────────────────────────────────────────────────────────
 
 function EditableCell({ value, onSave }: { value: string; onSave: (v: string) => void }) {
@@ -132,6 +120,7 @@ function SortIcon({ col, sortCol, sortDir }: { col: string; sortCol: string; sor
 export default function MasterlistPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = use(params)
 
+  const [viewMode, setViewMode] = useState<"guest-list" | "masterlist">("guest-list")
   const [event, setEvent] = useState<Event | null>(null)
   const [formFields, setFormFields] = useState<FormField[]>([])
   const [registrations, setRegistrations] = useState<Registration[]>([])
@@ -242,7 +231,8 @@ export default function MasterlistPage({ params }: { params: Promise<{ id: strin
   function toggleCol(id: string) {
     setHiddenCols((prev) => {
       const n = new Set(prev)
-      n.has(id) ? n.delete(id) : n.add(id)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
       return n
     })
   }
@@ -296,15 +286,33 @@ export default function MasterlistPage({ params }: { params: Promise<{ id: strin
   return (
     <DashboardLayout>
       <Header
-        title={event?.title ?? "Masterlist"}
+        title="Gestione Partecipanti"
         subtitle={`${sorted.length} partecipanti${event?.clientName ? ` · ${event.clientName}` : ""}`}
         actions={
           <div className="flex items-center gap-2">
-            <Link href={`/events/${eventId}`}>
-              <Button variant="outline" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />Evento
-              </Button>
-            </Link>
+            {/* View toggle */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+              <button
+                onClick={() => setViewMode("guest-list")}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === "guest-list"
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                }`}
+              >
+                Lista Ospiti
+              </button>
+              <button
+                onClick={() => setViewMode("masterlist")}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === "masterlist"
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                }`}
+              >
+                Masterlist
+              </button>
+            </div>
             <a href={`/api/participants/export?eventId=${eventId}`} download>
               <Button variant="outline" size="sm" className="gap-2">
                 <Download className="h-4 w-4" />Esporta
@@ -318,6 +326,83 @@ export default function MasterlistPage({ params }: { params: Promise<{ id: strin
       />
 
       <div className="p-6 space-y-4">
+        {/* Guest List view */}
+        {viewMode === "guest-list" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Totale", value: registrations.length, color: "text-gray-900" },
+                { label: "Confermati", value: registrations.filter((r) => r.status === "CONFIRMED").length, color: "text-green-600" },
+                { label: "In attesa", value: registrations.filter((r) => r.status === "PENDING").length, color: "text-yellow-600" },
+                { label: "Check-in", value: registrations.filter((r) => r.checkedInAt).length, color: "text-blue-600" },
+              ].map((s) => (
+                <Card key={s.label}>
+                  <CardContent className="p-3 text-center">
+                    <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                    <p className="text-xs text-gray-500">{s.label}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <Input
+                placeholder="Cerca nome, email, azienda..."
+                className="pl-8 h-9 text-sm max-w-sm"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {sorted.length === 0 ? (
+                <div className="col-span-3 text-center py-12 text-gray-400">
+                  <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Nessun partecipante trovato</p>
+                </div>
+              ) : sorted.map((reg) => (
+                <Card key={reg.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        {reg.firstName[0]}{reg.lastName[0]}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{reg.firstName} {reg.lastName}</p>
+                        <p className="text-xs text-gray-500 truncate">{reg.email}</p>
+                        {reg.company && <p className="text-xs text-gray-400 truncate">{reg.company}</p>}
+                      </div>
+                      <div>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${getStatusColor(reg.status)}`}>
+                          {getStatusLabel(reg.status)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
+                      {reg.group && (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-white text-[10px] font-medium"
+                          style={{ backgroundColor: reg.group.color || "#6B7280" }}
+                        >
+                          {reg.group.name}
+                        </span>
+                      )}
+                      {reg.checkedInAt && (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <CheckCircle2 className="h-3 w-3" />Check-in
+                        </span>
+                      )}
+                      <span className="ml-auto font-mono">{reg.registrationCode}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Masterlist view */}
+        {viewMode === "masterlist" && (
+        <div className="space-y-4">
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
@@ -518,11 +603,13 @@ export default function MasterlistPage({ params }: { params: Promise<{ id: strin
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Close col picker on outside click */}
       {showColPicker && (
         <div className="fixed inset-0 z-10" onClick={() => setShowColPicker(false)} />
       )}
+    </div>
     </DashboardLayout>
   )
 }

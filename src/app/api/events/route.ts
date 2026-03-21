@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireMember, requireOrg } from "@/lib/auth-helpers";
 import { slugify } from "@/lib/utils";
+import { initEventCompany, isPaperclipAvailable } from "@/lib/paperclip-client";
 
 export async function GET() {
   const result = await requireOrg("VIEWER");
@@ -96,6 +97,30 @@ export async function POST(req: NextRequest) {
         data: plugins.map((p) => ({ eventId: event.id, pluginType: p, enabled: true })),
       })
     }
+
+    // Init company Paperclip (asincrono, non bloccante)
+    const phormaBaseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
+    isPaperclipAvailable().then(async (available) => {
+      if (!available) return
+      try {
+        const setup = await initEventCompany({
+          eventId: event.id,
+          orgId,
+          eventTitle: event.title,
+          clientName: event.clientName,
+          phormaBaseUrl,
+        })
+        await prisma.event.update({
+          where: { id: event.id },
+          data: {
+            paperclipCompanyId: setup.companyId,
+            paperclipAgentIds: JSON.stringify(setup.agentIds),
+          },
+        })
+      } catch (err) {
+        console.error("[Paperclip] Errore init company:", err)
+      }
+    })
 
     return NextResponse.json(event, { status: 201 });
   } catch (e) {

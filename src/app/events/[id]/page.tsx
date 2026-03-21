@@ -3,13 +3,12 @@ import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import {
-  Calendar, MapPin, Users, ArrowLeft, Edit, Mail, QrCode, Download,
+  Calendar, MapPin, Users, Edit, Mail, QrCode, Download,
   CheckCircle2, Clock, XCircle, BarChart3, Globe, Hotel, Plane,
-  Phone, User, Euro, FileText, Info, FormInput, TrendingUp,
+  Phone, User, Euro, FileText, Info, FormInput,
 } from "lucide-react";
 import AnalyticsClient from "./analytics/AnalyticsClient";
 import HospitalityClient from "./HospitalityClient";
@@ -24,12 +23,22 @@ import { EventStatusActions, DuplicateEventButton } from "./EventActions";
 
 export const dynamic = "force-dynamic";
 
+type Tab = "overview" | "participants" | "analytics" | "groups" | "logistics" | "travel" | "settings";
+
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
+  const { tab: rawTab } = await searchParams;
+  const tab: Tab =
+    rawTab === "participants" || rawTab === "analytics" || rawTab === "groups" ||
+    rawTab === "logistics" || rawTab === "travel" || rawTab === "settings"
+      ? rawTab
+      : "overview";
 
   const event = await prisma.event.findUnique({
     where: { id },
@@ -76,12 +85,6 @@ export default async function EventDetailPage({
         }
         actions={
           <div className="flex items-center gap-2 flex-wrap">
-            <Link href="/events">
-              <Button variant="outline" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Indietro
-              </Button>
-            </Link>
             <Link href={`/events/${event.id}/edit`}>
               <Button variant="outline" size="sm" className="gap-2">
                 <Edit className="h-4 w-4" />
@@ -141,300 +144,269 @@ export default async function EventDetailPage({
           </Card>
         )}
 
-        {/* Tab navigation */}
-        <Tabs defaultValue="overview">
-          <TabsList className="grid grid-cols-6 w-full max-w-3xl">
-            <TabsTrigger value="overview" className="gap-1.5">
-              <Info className="h-3.5 w-3.5" />Panoramica
-            </TabsTrigger>
-            <TabsTrigger value="participants" className="gap-1.5">
-              <Users className="h-3.5 w-3.5" />Partecipanti
-              {stats.total > 0 && (
-                <span className="ml-1 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {stats.total}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="gap-1.5">
-              <TrendingUp className="h-3.5 w-3.5" />Analytics
-            </TabsTrigger>
-            <TabsTrigger value="groups" className="gap-1.5">
-              <Users className="h-3.5 w-3.5" />Gruppi
-            </TabsTrigger>
-            <TabsTrigger value="logistics" className="gap-1.5">
-              <Hotel className="h-3.5 w-3.5" />Logistica
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-1.5">
-              <FileText className="h-3.5 w-3.5" />Gestione
-            </TabsTrigger>
-          </TabsList>
+        {/* Tab content — driven by URL ?tab= */}
 
-          {/* ── PANORAMICA ── */}
-          <TabsContent value="overview" className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              {/* Info principale */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Info className="h-4 w-4 text-blue-500" />Informazioni evento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  {tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {tags.map((tag) => (
-                        <Badge key={tag} variant="secondary">{tag}</Badge>
-                      ))}
-                    </div>
-                  )}
-                  {event.description && (
-                    <p className="text-gray-600 leading-relaxed">{event.description}</p>
-                  )}
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    {event.startDate && (
-                      <div className="flex items-start gap-2">
-                        <Calendar className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-gray-400 text-xs">Inizio</p>
-                          <p className="font-medium text-gray-900">{formatDateTime(event.startDate)}</p>
-                        </div>
-                      </div>
-                    )}
-                    {event.endDate && (
-                      <div className="flex items-start gap-2">
-                        <Calendar className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-gray-400 text-xs">Fine</p>
-                          <p className="font-medium text-gray-900">{formatDateTime(event.endDate)}</p>
-                        </div>
-                      </div>
-                    )}
-                    {event.online ? (
-                      <div className="flex items-start gap-2">
-                        <Globe className="h-4 w-4 text-cyan-500 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-gray-400 text-xs">Modalità</p>
-                          <p className="font-medium text-gray-900">Online</p>
-                          {event.onlineUrl && (
-                            <a href={event.onlineUrl} target="_blank" rel="noreferrer"
-                              className="text-xs text-blue-600 hover:underline truncate block max-w-[160px]">
-                              {event.onlineUrl}
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ) : event.location ? (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-gray-400 text-xs">Luogo</p>
-                          <p className="font-medium text-gray-900">{event.location}</p>
-                          {event.city && <p className="text-gray-500 text-xs">{event.city}{event.country ? `, ${event.country}` : ""}</p>}
-                        </div>
-                      </div>
-                    ) : null}
-                    <div className="flex items-start gap-2">
-                      <Users className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-400 text-xs">Capienza</p>
-                        <p className="font-medium text-gray-900">
-                          {event.capacity ? `${event.capacity} posti` : "Illimitata"}
-                        </p>
-                      </div>
-                    </div>
-                    {event.website && (
-                      <div className="flex items-start gap-2">
-                        <Globe className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-gray-400 text-xs">Sito web</p>
-                          <a href={event.website} target="_blank" rel="noreferrer"
-                            className="text-blue-600 hover:underline text-xs font-medium">
-                            {event.website}
-                          </a>
-                        </div>
-                      </div>
-                    )}
+        {/* ── PANORAMICA ── */}
+        {tab === "overview" && (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Info className="h-4 w-4 text-blue-500" />Informazioni evento
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {tags.map((tag) => (
+                      <Badge key={tag} variant="secondary">{tag}</Badge>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Organizzazione + Budget */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <User className="h-4 w-4 text-blue-500" />Segreteria e budget
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  {event.organizerName && (
+                )}
+                {event.description && (
+                  <p className="text-gray-600 leading-relaxed">{event.description}</p>
+                )}
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  {event.startDate && (
                     <div className="flex items-start gap-2">
-                      <User className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <Calendar className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-gray-400 text-xs">Responsabile</p>
-                        <p className="font-medium text-gray-900">{event.organizerName}</p>
+                        <p className="text-gray-400 text-xs">Inizio</p>
+                        <p className="font-medium text-gray-900">{formatDateTime(event.startDate)}</p>
                       </div>
                     </div>
                   )}
-                  {event.organizerEmail && (
+                  {event.endDate && (
                     <div className="flex items-start gap-2">
-                      <Mail className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <Calendar className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-gray-400 text-xs">Email</p>
-                        <a href={`mailto:${event.organizerEmail}`} className="text-blue-600 hover:underline font-medium">
-                          {event.organizerEmail}
+                        <p className="text-gray-400 text-xs">Fine</p>
+                        <p className="font-medium text-gray-900">{formatDateTime(event.endDate)}</p>
+                      </div>
+                    </div>
+                  )}
+                  {event.online ? (
+                    <div className="flex items-start gap-2">
+                      <Globe className="h-4 w-4 text-cyan-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-gray-400 text-xs">Modalità</p>
+                        <p className="font-medium text-gray-900">Online</p>
+                        {event.onlineUrl && (
+                          <a href={event.onlineUrl} target="_blank" rel="noreferrer"
+                            className="text-xs text-blue-600 hover:underline truncate block max-w-[160px]">
+                            {event.onlineUrl}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ) : event.location ? (
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-gray-400 text-xs">Luogo</p>
+                        <p className="font-medium text-gray-900">{event.location}</p>
+                        {event.city && <p className="text-gray-500 text-xs">{event.city}{event.country ? `, ${event.country}` : ""}</p>}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="flex items-start gap-2">
+                    <Users className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-400 text-xs">Capienza</p>
+                      <p className="font-medium text-gray-900">
+                        {event.capacity ? `${event.capacity} posti` : "Illimitata"}
+                      </p>
+                    </div>
+                  </div>
+                  {event.website && (
+                    <div className="flex items-start gap-2">
+                      <Globe className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-gray-400 text-xs">Sito web</p>
+                        <a href={event.website} target="_blank" rel="noreferrer"
+                          className="text-blue-600 hover:underline text-xs font-medium">
+                          {event.website}
                         </a>
                       </div>
                     </div>
                   )}
-                  {event.organizerPhone && (
-                    <div className="flex items-start gap-2">
-                      <Phone className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-gray-400 text-xs">Telefono</p>
-                        <p className="font-medium text-gray-900">{event.organizerPhone}</p>
-                      </div>
-                    </div>
-                  )}
-                  {(event.budgetEstimated || event.budgetActual) && (
-                    <div className="flex gap-4 pt-2 border-t border-gray-100">
-                      {event.budgetEstimated && (
-                        <div className="flex items-start gap-2">
-                          <Euro className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-gray-400 text-xs">Budget stimato</p>
-                            <p className="font-medium text-gray-900">{formatCurrency(event.budgetEstimated)}</p>
-                          </div>
-                        </div>
-                      )}
-                      {event.budgetActual && (
-                        <div className="flex items-start gap-2">
-                          <Euro className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-gray-400 text-xs">Budget effettivo</p>
-                            <p className="font-medium text-gray-900">{formatCurrency(event.budgetActual)}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {event.secretariatNotes && (
-                    <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 leading-relaxed">
-                      <p className="font-medium text-gray-700 mb-1">Note segreteria</p>
-                      {event.secretariatNotes}
-                    </div>
-                  )}
-                  {!event.organizerName && !event.budgetEstimated && !event.secretariatNotes && (
-                    <p className="text-gray-400 text-sm">Nessuna informazione organizzativa inserita.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* ── PARTECIPANTI ── */}
-          <TabsContent value="participants" className="mt-4">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-base">Partecipanti ({stats.total})</CardTitle>
-                <div className="flex gap-2">
-                  <Link href={`/participants?eventId=${event.id}`}>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <Users className="h-4 w-4" />
-                      Gestisci tutti
-                    </Button>
-                  </Link>
-                  <a href={`/api/participants/export?eventId=${event.id}`} download>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <Download className="h-4 w-4" />
-                      Esporta
-                    </Button>
-                  </a>
-                </div>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <User className="h-4 w-4 text-blue-500" />Segreteria e budget
+                </CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
-                {/* Mini stats */}
-                <div className="grid grid-cols-4 gap-0 border-b border-gray-100">
-                  {[
-                    { label: "Confermati", value: stats.confirmed, color: "text-green-600 bg-green-50" },
-                    { label: "In attesa", value: stats.pending, color: "text-yellow-600 bg-yellow-50" },
-                    { label: "Annullati", value: stats.cancelled, color: "text-red-600 bg-red-50" },
-                    { label: "Lista attesa", value: stats.waitlist, color: "text-purple-600 bg-purple-50" },
-                  ].map((s) => (
-                    <div key={s.label} className="p-3 text-center border-r border-gray-100 last:border-r-0">
-                      <p className={`text-lg font-bold ${s.color.split(" ")[0]}`}>{s.value}</p>
-                      <p className="text-xs text-gray-400">{s.label}</p>
+              <CardContent className="space-y-3 text-sm">
+                {event.organizerName && (
+                  <div className="flex items-start gap-2">
+                    <User className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-400 text-xs">Responsabile</p>
+                      <p className="font-medium text-gray-900">{event.organizerName}</p>
                     </div>
-                  ))}
-                </div>
-
-                {/* Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-100">
-                      <tr>
-                        {["Partecipante", "Email", "Azienda", "Stato", "Pagamento", "Iscritto il"].map((h) => (
-                          <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {event.registrations.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="text-center py-12 text-gray-400 text-sm">
-                            <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                            Nessuna iscrizione ancora
-                          </td>
-                        </tr>
-                      ) : (
-                        event.registrations.map((reg) => (
-                          <tr key={reg.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                  {reg.firstName[0]}{reg.lastName[0]}
-                                </div>
-                                <span className="font-medium text-gray-900">
-                                  {reg.firstName} {reg.lastName}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-gray-500">{reg.email}</td>
-                            <td className="px-4 py-3 text-gray-500">{reg.company ?? "—"}</td>
-                            <td className="px-4 py-3">
-                              <Badge className={getStatusColor(reg.status)}>{getStatusLabel(reg.status)}</Badge>
-                            </td>
-                            <td className="px-4 py-3">
-                              {reg.paymentStatus ? (
-                                <Badge className={getStatusColor(reg.paymentStatus)}>
-                                  {getStatusLabel(reg.paymentStatus)}
-                                </Badge>
-                              ) : <span className="text-gray-400">—</span>}
-                            </td>
-                            <td className="px-4 py-3 text-gray-400 text-xs">{formatDate(reg.createdAt)}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                {event.registrations.length > 0 && (
-                  <div className="p-4 border-t border-gray-100 text-center">
-                    <Link href={`/participants?eventId=${event.id}`}>
-                      <Button variant="ghost" size="sm" className="gap-2 text-blue-600">
-                        Vedi tutti i partecipanti <Users className="h-4 w-4" />
-                      </Button>
-                    </Link>
                   </div>
+                )}
+                {event.organizerEmail && (
+                  <div className="flex items-start gap-2">
+                    <Mail className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-400 text-xs">Email</p>
+                      <a href={`mailto:${event.organizerEmail}`} className="text-blue-600 hover:underline font-medium">
+                        {event.organizerEmail}
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {event.organizerPhone && (
+                  <div className="flex items-start gap-2">
+                    <Phone className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-gray-400 text-xs">Telefono</p>
+                      <p className="font-medium text-gray-900">{event.organizerPhone}</p>
+                    </div>
+                  </div>
+                )}
+                {(event.budgetEstimated || event.budgetActual) && (
+                  <div className="flex gap-4 pt-2 border-t border-gray-100">
+                    {event.budgetEstimated && (
+                      <div className="flex items-start gap-2">
+                        <Euro className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-gray-400 text-xs">Budget stimato</p>
+                          <p className="font-medium text-gray-900">{formatCurrency(event.budgetEstimated)}</p>
+                        </div>
+                      </div>
+                    )}
+                    {event.budgetActual && (
+                      <div className="flex items-start gap-2">
+                        <Euro className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-gray-400 text-xs">Budget effettivo</p>
+                          <p className="font-medium text-gray-900">{formatCurrency(event.budgetActual)}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {event.secretariatNotes && (
+                  <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 leading-relaxed">
+                    <p className="font-medium text-gray-700 mb-1">Note segreteria</p>
+                    {event.secretariatNotes}
+                  </div>
+                )}
+                {!event.organizerName && !event.budgetEstimated && !event.secretariatNotes && (
+                  <p className="text-gray-400 text-sm">Nessuna informazione organizzativa inserita.</p>
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        )}
 
-          {/* ── LOGISTICA ── */}
-          <TabsContent value="logistics" className="mt-4 space-y-6">
-            {/* Venue (static) */}
+        {/* ── PARTECIPANTI ── */}
+        {tab === "participants" && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base">Partecipanti ({stats.total})</CardTitle>
+              <div className="flex gap-2">
+                <Link href={`/participants?eventId=${event.id}`}>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Users className="h-4 w-4" />
+                    Gestisci tutti
+                  </Button>
+                </Link>
+                <a href={`/api/participants/export?eventId=${event.id}`} download>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Esporta
+                  </Button>
+                </a>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="grid grid-cols-4 gap-0 border-b border-gray-100">
+                {[
+                  { label: "Confermati", value: stats.confirmed, color: "text-green-600" },
+                  { label: "In attesa", value: stats.pending, color: "text-yellow-600" },
+                  { label: "Annullati", value: stats.cancelled, color: "text-red-600" },
+                  { label: "Lista attesa", value: stats.waitlist, color: "text-purple-600" },
+                ].map((s) => (
+                  <div key={s.label} className="p-3 text-center border-r border-gray-100 last:border-r-0">
+                    <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+                    <p className="text-xs text-gray-400">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      {["Partecipante", "Email", "Azienda", "Stato", "Pagamento", "Iscritto il"].map((h) => (
+                        <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {event.registrations.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-12 text-gray-400 text-sm">
+                          <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                          Nessuna iscrizione ancora
+                        </td>
+                      </tr>
+                    ) : (
+                      event.registrations.map((reg) => (
+                        <tr key={reg.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                {reg.firstName[0]}{reg.lastName[0]}
+                              </div>
+                              <span className="font-medium text-gray-900">
+                                {reg.firstName} {reg.lastName}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-500">{reg.email}</td>
+                          <td className="px-4 py-3 text-gray-500">{reg.company ?? "—"}</td>
+                          <td className="px-4 py-3">
+                            <Badge className={getStatusColor(reg.status)}>{getStatusLabel(reg.status)}</Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            {reg.paymentStatus ? (
+                              <Badge className={getStatusColor(reg.paymentStatus)}>
+                                {getStatusLabel(reg.paymentStatus)}
+                              </Badge>
+                            ) : <span className="text-gray-400">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-gray-400 text-xs">{formatDate(reg.createdAt)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {event.registrations.length > 0 && (
+                <div className="p-4 border-t border-gray-100 text-center">
+                  <Link href={`/participants?eventId=${event.id}`}>
+                    <Button variant="ghost" size="sm" className="gap-2 text-blue-600">
+                      Vedi tutti i partecipanti <Users className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── LOGISTICA ── */}
+        {tab === "logistics" && (
+          <div className="space-y-6">
             {!event.online && (event.location || event.city || event.venueSetup) && (
               <Card>
                 <CardHeader className="pb-3">
@@ -452,27 +424,23 @@ export default async function EventDetailPage({
                 </CardContent>
               </Card>
             )}
-
-            {/* Alloggio — dynamic */}
             <div>
               <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
                 <Hotel className="h-4 w-4 text-purple-500" />Gestione alloggio
               </h3>
               <HospitalityClient eventId={event.id} />
             </div>
+          </div>
+        )}
 
-            {/* Trasporti — dynamic */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
-                <Plane className="h-4 w-4 text-orange-500" />Gestione trasporti
-              </h3>
-              <TravelClient eventId={event.id} />
-            </div>
-          </TabsContent>
+        {/* ── VIAGGIO ── */}
+        {tab === "travel" && (
+          <TravelClient eventId={event.id} />
+        )}
 
-          {/* ── GESTIONE ── */}
-          <TabsContent value="settings" className="mt-4 space-y-4">
-            {/* Azioni rapide */}
+        {/* ── GESTIONE ── */}
+        {tab === "settings" && (
+          <div className="space-y-4">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Azioni rapide</CardTitle>
@@ -484,9 +452,6 @@ export default async function EventDetailPage({
                       <Users className="h-4 w-4" />Gestisci partecipanti
                     </Button>
                   </Link>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Mail className="h-4 w-4" />Invia email
-                  </Button>
                   <Link href={`/events/${event.id}/checkin`}>
                     <Button variant="outline" size="sm" className="gap-2">
                       <QrCode className="h-4 w-4" />Check-in QR
@@ -517,7 +482,6 @@ export default async function EventDetailPage({
               </CardContent>
             </Card>
 
-            {/* Cambio stato */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Gestione stato</CardTitle>
@@ -533,7 +497,6 @@ export default async function EventDetailPage({
               </CardContent>
             </Card>
 
-            {/* Zona pericolosa */}
             <Card className="border-red-100">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-red-600 flex items-center gap-2">
@@ -547,18 +510,18 @@ export default async function EventDetailPage({
                 <DeleteEventButton eventId={event.id} />
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        )}
 
-          {/* ── GRUPPI ── */}
-          <TabsContent value="groups" className="mt-4 space-y-4">
-            <GroupsClient eventId={event.id} />
-          </TabsContent>
+        {/* ── GRUPPI ── */}
+        {tab === "groups" && (
+          <GroupsClient eventId={event.id} />
+        )}
 
-          {/* ── ANALYTICS ── */}
-          <TabsContent value="analytics" className="mt-4">
-            <AnalyticsClient eventId={event.id} />
-          </TabsContent>
-        </Tabs>
+        {/* ── ANALYTICS ── */}
+        {tab === "analytics" && (
+          <AnalyticsClient eventId={event.id} />
+        )}
       </div>
     </DashboardLayout>
   );
