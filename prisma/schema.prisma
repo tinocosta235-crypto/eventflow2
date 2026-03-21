@@ -23,6 +23,7 @@ model Organization {
   hotels        Hotel[]
   emailTemplates OrgEmailTemplate[]
   emailSenders   OrgEmailSender[]
+  integrations   OrgIntegration[]
 }
 
 model OrgEmailTemplate {
@@ -107,6 +108,41 @@ model VerificationToken {
   token      String   @unique
   expires    DateTime
   @@unique([identifier, token])
+}
+
+// ─── INTEGRATIONS ──────────────────────────────────────────
+// Provider: GOOGLE | MICROSOFT | AMADEUS | BOOKING | WHATSAPP | TELEGRAM
+// Status:   PENDING | CONNECTED | EXPIRED | REVOKED | ERROR
+model OrgIntegration {
+  id             String   @id @default(cuid())
+  organizationId String
+  provider       String   // GOOGLE | MICROSOFT | AMADEUS | BOOKING | WHATSAPP | TELEGRAM
+  status         String   @default("PENDING")
+
+  // OAuth tokens (AES-256-GCM encrypted JSON blob)
+  encryptedTokens String?  // { access_token, refresh_token, expires_at, scope }
+
+  // API-key based integrations
+  encryptedApiKey String?
+
+  // Scopes granted
+  scopes         String?  // JSON string[]
+
+  // GDPR consent
+  consentGivenAt DateTime?
+  consentGivenBy String?   // userId
+  revokedAt      DateTime?
+  revokedBy      String?   // userId
+
+  // Metadata (email/name of connected account, etc.)
+  meta           String?  // JSON
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
 }
 
 model Event {

@@ -320,6 +320,7 @@ export function ContextualSidebar() {
           <NavLink href="/settings/team"            label="Accesso team"             icon={UserCog}   active={pathname.startsWith("/settings/team")} />
           <NavLink href="/settings/email-templates" label="Template email"           icon={Mail}      active={pathname.startsWith("/settings/email-templates")} />
           <NavLink href="/settings/email"          label="Mittenti email"           icon={Mail}      active={pathname.startsWith("/settings/email")} />
+          <NavLink href="/settings/integrations"   label="Integrazioni"             icon={Plug}      active={pathname.startsWith("/settings/integrations")} />
         </>
       );
     }
