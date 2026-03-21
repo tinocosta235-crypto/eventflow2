@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { TopNav } from "./top-nav";
 import { ContextualSidebar } from "./contextual-sidebar";
+import { FloatingAgentPanel } from "@/components/ui/floating-agent-panel";
 
 export function DashboardLayout({ children, noPadding }: { children: React.ReactNode; noPadding?: boolean }) {
   return (
@@ -24,6 +25,7 @@ export function DashboardLayout({ children, noPadding }: { children: React.React
       >
         {children}
       </main>
+      <FloatingAgentPanel />
     </div>
   );
 }
