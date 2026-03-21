@@ -79,7 +79,7 @@ export const LIBRARY: LibrarySection[] = [
       { nodeType: "trigger", nodeKey: "invite_sent",          label: "Invio invito email",          description: "Quando viene inviata un'email di invito" },
       { nodeType: "trigger", nodeKey: "guest_imported",       label: "Import partecipanti",         description: "Quando un partecipante viene importato in lista" },
       { nodeType: "trigger", nodeKey: "guest_group_assigned", label: "Aggiunto a un gruppo",        description: "Quando un partecipante viene assegnato a un guest group" },
-      { nodeType: "trigger", nodeKey: "registration_submitted", label: "Form compilato",            description: "Quando il partecipante completa il form di registrazione" },
+      { nodeType: "trigger", nodeKey: "registration_submitted", label: "Registrazione inviata",      description: "Quando un partecipante completa e invia il form di registrazione" },
       { nodeType: "trigger", nodeKey: "checkin_completed",    label: "Check-in completato",         description: "Quando il partecipante fa check-in all'evento" },
       { nodeType: "trigger", nodeKey: "date_reached",         label: "Data raggiunta",              description: "Quando si raggiunge una data specifica" },
       { nodeType: "trigger", nodeKey: "scheduled_daily",      label: "Ogni giorno (schedulato)",    description: "Trigger ripetuto ogni giorno all'orario impostato" },
