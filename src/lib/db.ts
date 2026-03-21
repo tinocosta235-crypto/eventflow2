@@ -4,8 +4,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 function createPrisma() {
+  // Strip pgbouncer param — not compatible with @prisma/adapter-pg direct pool
+  const connectionString = (process.env.DATABASE_URL ?? "")
+    .replace("?pgbouncer=true", "")
+    .replace("&pgbouncer=true", "");
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString,
     ssl: { rejectUnauthorized: false },
   });
   const adapter = new PrismaPg(pool as never);
