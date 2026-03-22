@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import {
   ArrowLeft, Download, Search, Filter, RefreshCw, Loader2,
   Users, Check, Columns, CheckCircle2, Circle, ArrowUpDown, ArrowUp, ArrowDown,
+  UserPlus, Upload, X, FileSpreadsheet,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "@/components/ui/toaster"
@@ -115,6 +116,214 @@ function SortIcon({ col, sortCol, sortDir }: { col: string; sortCol: string; sor
     : <ArrowDown className="h-3 w-3 text-blue-600 ml-1 flex-shrink-0" />
 }
 
+// ── AddParticipantModal ───────────────────────────────────────────────────────
+
+function AddParticipantModal({ eventId, onClose, onSaved }: { eventId: string; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", company: "", jobTitle: "", status: "CONFIRMED" })
+  const [saving, setSaving] = useState(false)
+
+  function set(k: string, v: string) { setForm((p) => ({ ...p, [k]: v })) }
+
+  async function handleSave() {
+    if (!form.firstName || !form.lastName || !form.email) {
+      toast("Nome, cognome e email sono obbligatori", { variant: "error" }); return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch("/api/participants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, eventId }),
+      })
+      if (!res.ok) {
+        const err = await res.json() as { error?: string }
+        toast(err.error ?? "Errore nel salvataggio", { variant: "error" }); return
+      }
+      toast("Partecipante aggiunto")
+      onSaved()
+      onClose()
+    } catch {
+      toast("Errore di connessione", { variant: "error" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[520px] max-w-[95vw] overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <UserPlus className="h-4 w-4 text-[var(--accent)]" />
+            <h2 className="font-semibold text-[var(--text-primary)]">Aggiungi partecipante</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { k: "firstName", label: "Nome *", placeholder: "Mario" },
+              { k: "lastName", label: "Cognome *", placeholder: "Rossi" },
+            ].map(({ k, label, placeholder }) => (
+              <div key={k}>
+                <label className="text-xs text-[var(--text-tertiary)] mb-1 block">{label}</label>
+                <Input placeholder={placeholder} value={(form as Record<string, string>)[k]} onChange={(e) => set(k, e.target.value)} />
+              </div>
+            ))}
+          </div>
+          <div>
+            <label className="text-xs text-[var(--text-tertiary)] mb-1 block">Email *</label>
+            <Input type="email" placeholder="mario.rossi@azienda.it" value={form.email} onChange={(e) => set("email", e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { k: "phone", label: "Telefono", placeholder: "+39 333 000 0000" },
+              { k: "company", label: "Azienda", placeholder: "Acme SpA" },
+            ].map(({ k, label, placeholder }) => (
+              <div key={k}>
+                <label className="text-xs text-[var(--text-tertiary)] mb-1 block">{label}</label>
+                <Input placeholder={placeholder} value={(form as Record<string, string>)[k]} onChange={(e) => set(k, e.target.value)} />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-[var(--text-tertiary)] mb-1 block">Ruolo</label>
+              <Input placeholder="CEO" value={form.jobTitle} onChange={(e) => set("jobTitle", e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-[var(--text-tertiary)] mb-1 block">Stato</label>
+              <select value={form.status} onChange={(e) => set("status", e.target.value)} className="w-full h-10 rounded-lg border border-[var(--border)] bg-white px-3 text-sm text-[var(--text-primary)]">
+                <option value="CONFIRMED">Confermato</option>
+                <option value="PENDING">In attesa</option>
+                <option value="WAITLISTED">Waitlist</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-[var(--depth-3)]">
+          <Button variant="outline" size="sm" onClick={onClose}>Annulla</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+            Aggiungi
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── ImportModal ───────────────────────────────────────────────────────────────
+
+function ImportModal({ eventId, onClose, onSaved }: { eventId: string; onClose: () => void; onSaved: () => void }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null)
+
+  async function handleImport() {
+    if (!file) { toast("Seleziona un file", { variant: "error" }); return }
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      fd.append("eventId", eventId)
+      const res = await fetch("/api/participants/import-file", { method: "POST", body: fd })
+      const data = await res.json() as { imported: number; skipped: number; errors: string[] }
+      setResult(data)
+      if (data.imported > 0) { toast(`${data.imported} partecipanti importati`); onSaved() }
+    } catch {
+      toast("Errore durante l'importazione", { variant: "error" })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[480px] max-w-[95vw] overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <Upload className="h-4 w-4 text-[var(--accent)]" />
+            <h2 className="font-semibold text-[var(--text-primary)]">Importa da file</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          {!result ? (
+            <>
+              {/* Download template */}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--depth-3)] border border-[var(--border-dim)]">
+                <FileSpreadsheet className="h-5 w-5 text-[var(--accent)] flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-[var(--text-primary)]">Scarica il template Excel</p>
+                  <p className="text-[10px] text-[var(--text-tertiary)]">Colonne: nome*, cognome*, email*, telefono, azienda, ruolo, stato, note</p>
+                </div>
+                <a href="/api/participants/template" download className="text-xs font-medium text-[var(--accent)] hover:underline whitespace-nowrap">Scarica</a>
+              </div>
+              {/* File drop area */}
+              <div
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${file ? "border-[var(--accent)] bg-[rgba(112,96,204,0.04)]" : "border-[var(--border)] hover:border-[var(--accent)]"}`}
+                onClick={() => document.getElementById("import-file-input")?.click()}
+              >
+                <input
+                  id="import-file-input"
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+                {file ? (
+                  <>
+                    <FileSpreadsheet className="h-8 w-8 mx-auto mb-2 text-[var(--accent)]" />
+                    <p className="text-sm font-medium text-[var(--text-primary)]">{file.name}</p>
+                    <p className="text-xs text-[var(--text-tertiary)] mt-1">{(file.size / 1024).toFixed(0)} KB · clicca per cambiare</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-[var(--text-tertiary)]" />
+                    <p className="text-sm font-medium text-[var(--text-primary)]">Trascina o clicca per selezionare</p>
+                    <p className="text-xs text-[var(--text-tertiary)] mt-1">Formati supportati: .xlsx, .xls, .csv</p>
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <div className="flex-1 rounded-xl bg-green-50 border border-green-200 p-3 text-center">
+                  <p className="text-2xl font-bold text-green-700">{result.imported}</p>
+                  <p className="text-xs text-green-600">Importati</p>
+                </div>
+                <div className="flex-1 rounded-xl bg-yellow-50 border border-yellow-200 p-3 text-center">
+                  <p className="text-2xl font-bold text-yellow-700">{result.skipped}</p>
+                  <p className="text-xs text-yellow-600">Saltati (duplicati)</p>
+                </div>
+              </div>
+              {result.errors.length > 0 && (
+                <div className="rounded-xl bg-red-50 border border-red-200 p-3">
+                  <p className="text-xs font-medium text-red-700 mb-1">Errori ({result.errors.length})</p>
+                  <ul className="text-xs text-red-600 space-y-0.5 max-h-24 overflow-y-auto">
+                    {result.errors.map((e, i) => <li key={i}>· {e}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-[var(--depth-3)]">
+          <Button variant="outline" size="sm" onClick={onClose}>{result ? "Chiudi" : "Annulla"}</Button>
+          {!result && (
+            <Button size="sm" onClick={handleImport} disabled={importing || !file}>
+              {importing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+              {importing ? "Importazione..." : "Importa"}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MasterlistPage({ params }: { params: Promise<{ id: string }> }) {
@@ -140,6 +349,8 @@ export default function MasterlistPage({ params }: { params: Promise<{ id: strin
   // Column visibility
   const [showColPicker, setShowColPicker] = useState(false)
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set())
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -313,6 +524,12 @@ export default function MasterlistPage({ params }: { params: Promise<{ id: strin
                 Masterlist
               </button>
             </div>
+            <Button size="sm" className="gap-1.5" onClick={() => setShowAddModal(true)}>
+              <UserPlus className="h-4 w-4" />Aggiungi
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowImportModal(true)}>
+              <Upload className="h-4 w-4" />Importa
+            </Button>
             <a href={`/api/participants/export?eventId=${eventId}`} download>
               <Button variant="outline" size="sm" className="gap-2">
                 <Download className="h-4 w-4" />Esporta
@@ -610,6 +827,21 @@ export default function MasterlistPage({ params }: { params: Promise<{ id: strin
         <div className="fixed inset-0 z-10" onClick={() => setShowColPicker(false)} />
       )}
     </div>
+
+    {showAddModal && (
+      <AddParticipantModal
+        eventId={eventId}
+        onClose={() => setShowAddModal(false)}
+        onSaved={fetchData}
+      />
+    )}
+    {showImportModal && (
+      <ImportModal
+        eventId={eventId}
+        onClose={() => setShowImportModal(false)}
+        onSaved={fetchData}
+      />
+    )}
     </DashboardLayout>
   )
 }
