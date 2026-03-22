@@ -136,7 +136,7 @@ function getEventSections(eventId: string, pendingProposals = 0): { label: strin
     {
       label: "Registrazione",
       items: [
-        { href: `/events/${eventId}?tab=groups`,     label: "Categorie Ospiti",       icon: Tag,       tab: "groups" },
+        { href: `/events/${eventId}?tab=groups`,     label: "Categorie Partecipanti",       icon: Tag,       tab: "groups" },
         { href: `/events/${eventId}/form`,           label: "Form di registrazione",  icon: FormInput },
         { href: `/events/${eventId}/emails`,         label: "Comunicazioni email",    icon: Mail },
       ],

@@ -118,8 +118,8 @@ function SortIcon({ col, sortCol, sortDir }: { col: string; sortCol: string; sor
 
 // ── AddParticipantModal ───────────────────────────────────────────────────────
 
-function AddParticipantModal({ eventId, onClose, onSaved }: { eventId: string; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", company: "", jobTitle: "", status: "CONFIRMED" })
+function AddParticipantModal({ eventId, groups, onClose, onSaved }: { eventId: string; groups: Group[]; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", company: "", jobTitle: "", status: "CONFIRMED", groupId: "" })
   const [saving, setSaving] = useState(false)
 
   function set(k: string, v: string) { setForm((p) => ({ ...p, [k]: v })) }
@@ -133,7 +133,7 @@ function AddParticipantModal({ eventId, onClose, onSaved }: { eventId: string; o
       const res = await fetch("/api/participants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, eventId }),
+        body: JSON.stringify({ ...form, eventId, groupId: form.groupId || undefined }),
       })
       if (!res.ok) {
         const err = await res.json() as { error?: string }
@@ -200,6 +200,17 @@ function AddParticipantModal({ eventId, onClose, onSaved }: { eventId: string; o
               </select>
             </div>
           </div>
+          {groups.length > 0 && (
+            <div>
+              <label className="text-xs text-[var(--text-tertiary)] mb-1 block">Categoria partecipante</label>
+              <select value={form.groupId} onChange={(e) => set("groupId", e.target.value)} className="w-full h-10 rounded-lg border border-[var(--border)] bg-white px-3 text-sm text-[var(--text-primary)]">
+                <option value="">— Nessuna categoria</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-[var(--depth-3)]">
           <Button variant="outline" size="sm" onClick={onClose}>Annulla</Button>
@@ -511,7 +522,7 @@ export default function MasterlistPage({ params }: { params: Promise<{ id: strin
                     : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                 }`}
               >
-                Lista Ospiti
+                Lista Partecipanti
               </button>
               <button
                 onClick={() => setViewMode("masterlist")}
@@ -831,6 +842,7 @@ export default function MasterlistPage({ params }: { params: Promise<{ id: strin
     {showAddModal && (
       <AddParticipantModal
         eventId={eventId}
+        groups={groups}
         onClose={() => setShowAddModal(false)}
         onSaved={fetchData}
       />
