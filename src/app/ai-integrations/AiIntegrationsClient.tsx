@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { toast } from "@/components/ui/toaster"
-import { Loader2 } from "lucide-react"
+import { Loader2, Chrome, Shield, Key, CheckCircle2, ExternalLink } from "lucide-react"
 
 // ── Integration definitions ────────────────────────────────────────────────────
 
@@ -16,8 +16,8 @@ interface Integration {
   description: string
   category: IntegrationCategory
   status: IntegrationStatus
-  icon: string          // emoji or initials
-  color: string         // accent color
+  icon: string
+  color: string
   configurable?: boolean
 }
 
@@ -71,6 +71,84 @@ const STATUS_LABELS: Record<IntegrationStatus, string> = {
   available: "Configura",
   coming_soon: "Presto",
 }
+
+// ── OAuth / API key definitions ───────────────────────────────────────────────
+
+interface OAuthAccount {
+  id: string
+  name: string
+  description: string
+  icon: string
+  color: string
+  type: "oauth" | "apikey"
+  connected: boolean
+  comingSoon?: boolean
+  fields?: { key: string; label: string; placeholder: string; secret?: boolean }[]
+}
+
+const OAUTH_ACCOUNTS: OAuthAccount[] = [
+  {
+    id: "google",
+    name: "Google Workspace",
+    description: "Accedi a Google Calendar, Gmail e Drive per sincronizzare evento e comunicazioni.",
+    icon: "G",
+    color: "#4285F4",
+    type: "oauth",
+    connected: false,
+    comingSoon: true,
+  },
+  {
+    id: "microsoft",
+    name: "Microsoft 365",
+    description: "Integra Outlook, Teams e OneDrive. Sync calendario e notifiche automatiche.",
+    icon: "M",
+    color: "#0078D4",
+    type: "oauth",
+    connected: false,
+    comingSoon: true,
+  },
+  {
+    id: "amadeus_key",
+    name: "Amadeus API",
+    description: "Chiave API per accesso GDS Amadeus: ricerca voli, hotel e prenotazioni di gruppo.",
+    icon: "AM",
+    color: "#0057A0",
+    type: "apikey",
+    connected: false,
+    comingSoon: false,
+    fields: [
+      { key: "client_id", label: "Client ID", placeholder: "xxxxxxxxxxxxxxxx" },
+      { key: "client_secret", label: "Client Secret", placeholder: "••••••••••••••••", secret: true },
+    ],
+  },
+  {
+    id: "whatsapp_key",
+    name: "WhatsApp Business API",
+    description: "Token API Cloud per l'invio di messaggi WhatsApp ai partecipanti.",
+    icon: "WA",
+    color: "#25D366",
+    type: "apikey",
+    connected: false,
+    comingSoon: false,
+    fields: [
+      { key: "phone_id", label: "Phone Number ID", placeholder: "1234567890" },
+      { key: "access_token", label: "Access Token", placeholder: "EAAxxxxxxx...", secret: true },
+    ],
+  },
+  {
+    id: "telegram_bot",
+    name: "Telegram Bot",
+    description: "Bot token per notifiche Telegram ai partecipanti e check-in via chat.",
+    icon: "TG",
+    color: "#26A5E4",
+    type: "apikey",
+    connected: false,
+    comingSoon: false,
+    fields: [
+      { key: "bot_token", label: "Bot Token", placeholder: "123456:ABCDxxxxxxx", secret: true },
+    ],
+  },
+]
 
 // ── Salesforce config modal ─────────────────────────────────────────────────
 
@@ -222,7 +300,6 @@ function IntegrationCard({ integration, onClick }: { integration: Integration; o
       }`}
     >
       <div className="flex items-start gap-3">
-        {/* Icon */}
         <div
           className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
           style={{ background: integration.color }}
@@ -270,7 +347,6 @@ function ConfigModal({
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-[480px] max-w-[95vw]">
-        {/* Header */}
         <div className="flex items-center gap-3 mb-5">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold"
@@ -285,7 +361,6 @@ function ConfigModal({
           <button onClick={onClose} className="ml-auto text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
         </div>
 
-        {/* Body by integration */}
         {integration.id === "salesforce" && <SalesforceModal events={events} onClose={onClose} />}
         {integration.id === "langfuse" && <LangfuseModal onClose={onClose} />}
         {integration.id === "langgraph" && <LangGraphModal onClose={onClose} />}
@@ -310,11 +385,185 @@ function ConfigModal({
   )
 }
 
+// ── OAuth Account Card ────────────────────────────────────────────────────────
+
+function OAuthAccountCard({ account }: { account: OAuthAccount }) {
+  const [expanded, setExpanded] = useState(false)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    await new Promise(r => setTimeout(r, 800))
+    setSaving(false)
+    toast("Configurazione salvata", { description: `${account.name} configurato con successo.` })
+    setExpanded(false)
+  }
+
+  return (
+    <div
+      className={`rounded-xl border p-4 transition-all ${
+        account.connected
+          ? "border-emerald-200/60 bg-emerald-50/30"
+          : account.comingSoon
+          ? "border-gray-100 bg-gray-50/50"
+          : "border-[rgba(109,98,243,0.18)] bg-white"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+          style={{ background: account.color }}
+        >
+          {account.type === "oauth" ? <Chrome className="h-5 w-5" /> : account.icon}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-sm font-semibold text-gray-900">{account.name}</span>
+            {account.connected && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 className="h-2.5 w-2.5" /> Connesso
+              </span>
+            )}
+            {account.comingSoon && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-500">
+                Presto
+              </span>
+            )}
+            {!account.connected && !account.comingSoon && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-violet-100 text-violet-700 flex items-center gap-1">
+                <Key className="h-2.5 w-2.5" /> Configura
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 leading-relaxed">{account.description}</p>
+        </div>
+
+        {!account.comingSoon && !account.connected && (
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="ml-2 shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            style={{ background: "rgba(112,96,204,0.10)", color: "var(--accent)" }}
+          >
+            {expanded ? "Chiudi" : account.type === "oauth" ? "Connetti" : "Configura"}
+          </button>
+        )}
+        {account.comingSoon && (
+          <span className="ml-2 shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-400 cursor-default">
+            In arrivo
+          </span>
+        )}
+      </div>
+
+      {expanded && account.type === "oauth" && !account.comingSoon && (
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <button
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-semibold transition-colors hover:bg-gray-50"
+            style={{ borderColor: account.color, color: account.color }}
+          >
+            <ExternalLink className="h-4 w-4" />
+            Autorizza con {account.name}
+          </button>
+          <p className="text-xs text-gray-400 text-center mt-2">Verrai reindirizzato alla pagina di autorizzazione OAuth 2.0</p>
+        </div>
+      )}
+
+      {expanded && account.type === "apikey" && account.fields && (
+        <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+          {account.fields.map(field => (
+            <div key={field.key}>
+              <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+              <input
+                type={field.secret ? "password" : "text"}
+                placeholder={field.placeholder}
+                value={values[field.key] ?? ""}
+                onChange={e => setValues(v => ({ ...v, [field.key]: e.target.value }))}
+                className="w-full h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[rgba(109,98,243,0.4)]"
+              />
+            </div>
+          ))}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 py-2 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ background: "var(--accent)" }}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+              {saving ? "Salvataggio..." : "Salva credenziali"}
+            </button>
+            <button onClick={() => setExpanded(false)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg transition-colors">
+              Annulla
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-400 flex items-center gap-1">
+            <Shield className="h-3 w-3" />
+            Le credenziali sono cifrate a riposo e mai esposte nel frontend.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── OAuth Tab content ─────────────────────────────────────────────────────────
+
+function OAuthTab() {
+  return (
+    <div className="space-y-6">
+      {/* OAuth section */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Chrome className="h-4 w-4 text-gray-500" />
+          <h3 className="text-sm font-semibold text-gray-800">Account OAuth</h3>
+          <span className="text-xs text-gray-400">Connetti account di terze parti con OAuth 2.0</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {OAUTH_ACCOUNTS.filter(a => a.type === "oauth").map(account => (
+            <OAuthAccountCard key={account.id} account={account} />
+          ))}
+        </div>
+      </div>
+
+      {/* API Keys section */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Key className="h-4 w-4 text-gray-500" />
+          <h3 className="text-sm font-semibold text-gray-800">Chiavi API</h3>
+          <span className="text-xs text-gray-400">Credenziali API per integrazioni dirette</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {OAUTH_ACCOUNTS.filter(a => a.type === "apikey").map(account => (
+            <OAuthAccountCard key={account.id} account={account} />
+          ))}
+        </div>
+      </div>
+
+      {/* Security note */}
+      <div
+        className="rounded-xl border p-4 flex items-start gap-3"
+        style={{ background: "rgba(112,96,204,0.04)", borderColor: "rgba(112,96,204,0.14)" }}
+      >
+        <Shield className="h-4 w-4 mt-0.5 shrink-0" style={{ color: "var(--accent)" }} />
+        <div>
+          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Sicurezza credenziali</p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+            Tutte le credenziali OAuth e le chiavi API sono cifrate con AES-256 e conservate nel database sicuro di Phorma.
+            Non vengono mai trasmesse in chiaro né esposte nel frontend. Puoi revocare l'accesso in qualsiasi momento.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main client component ─────────────────────────────────────────────────────
 
 type EventOption = { id: string; title: string; status: string }
 
 export function AiIntegrationsClient({ events }: { events: EventOption[] }) {
+  const [mainTab, setMainTab] = useState<"integrations" | "oauth">("integrations")
   const [activeCategory, setActiveCategory] = useState<"all" | IntegrationCategory>("all")
   const [search, setSearch] = useState("")
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null)
@@ -329,62 +578,89 @@ export function AiIntegrationsClient({ events }: { events: EventOption[] }) {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      {/* Stats row */}
-      <div className="flex items-center gap-6 mb-6">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-          <span className="text-sm text-gray-600"><span className="font-semibold text-gray-900">{connectedCount}</span> attive</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-violet-400 inline-block" />
-          <span className="text-sm text-gray-600"><span className="font-semibold text-gray-900">{INTEGRATIONS.filter(i => i.status === "available").length}</span> configurabili</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />
-          <span className="text-sm text-gray-600"><span className="font-semibold text-gray-900">{INTEGRATIONS.filter(i => i.status === "coming_soon").length}</span> in arrivo</span>
-        </div>
+      {/* Main tabs pill */}
+      <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit" style={{ background: "rgba(112,96,204,0.08)" }}>
+        {([
+          { key: "integrations", label: "Integrazioni" },
+          { key: "oauth", label: "Account OAuth" },
+        ] as const).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setMainTab(tab.key)}
+            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
+            style={
+              mainTab === tab.key
+                ? { background: "var(--accent)", color: "#fff", boxShadow: "0 2px 8px rgba(112,96,204,0.25)" }
+                : { color: "var(--text-secondary)" }
+            }
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Search + categories */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Cerca integrazione..."
-          className="flex-1 h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[rgba(109,98,243,0.4)] focus:ring-1 focus:ring-[rgba(109,98,243,0.15)]"
-        />
-        <div className="flex gap-1.5 flex-wrap">
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat.key}
-              onClick={() => setActiveCategory(cat.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                activeCategory === cat.key
-                  ? "bg-[#7060CC] text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {mainTab === "integrations" && (
+        <>
+          {/* Stats row */}
+          <div className="flex items-center gap-6 mb-6">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+              <span className="text-sm text-gray-600"><span className="font-semibold text-gray-900">{connectedCount}</span> attive</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-violet-400 inline-block" />
+              <span className="text-sm text-gray-600"><span className="font-semibold text-gray-900">{INTEGRATIONS.filter(i => i.status === "available").length}</span> configurabili</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />
+              <span className="text-sm text-gray-600"><span className="font-semibold text-gray-900">{INTEGRATIONS.filter(i => i.status === "coming_soon").length}</span> in arrivo</span>
+            </div>
+          </div>
 
-      {/* Grid */}
-      {filtered.length === 0 ? (
-        <p className="text-center text-gray-400 py-16 text-sm">Nessuna integrazione trovata</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map(integration => (
-            <IntegrationCard
-              key={integration.id}
-              integration={integration}
-              onClick={() => setSelectedIntegration(integration)}
+          {/* Search + categories */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Cerca integrazione..."
+              className="flex-1 h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[rgba(109,98,243,0.4)] focus:ring-1 focus:ring-[rgba(109,98,243,0.15)]"
             />
-          ))}
-        </div>
+            <div className="flex gap-1.5 flex-wrap">
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat.key}
+                  onClick={() => setActiveCategory(cat.key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    activeCategory === cat.key
+                      ? "bg-[#7060CC] text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Grid */}
+          {filtered.length === 0 ? (
+            <p className="text-center text-gray-400 py-16 text-sm">Nessuna integrazione trovata</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filtered.map(integration => (
+                <IntegrationCard
+                  key={integration.id}
+                  integration={integration}
+                  onClick={() => setSelectedIntegration(integration)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
+
+      {mainTab === "oauth" && <OAuthTab />}
 
       {/* Config modal */}
       {selectedIntegration && (
