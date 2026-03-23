@@ -2,6 +2,67 @@ import { Resend } from "resend";
 import { createHmac } from "crypto";
 import { parseBuilderPayload, renderBuilderContentHtml } from "@/lib/email-builder";
 
+// ─────────────────────────────────────────────────────────────
+// HTML Sanitisation
+// Removes dangerous tags/attributes before any HTML is sent via email.
+// Allows only a safe subset of tags and attributes.
+// ─────────────────────────────────────────────────────────────
+
+const ALLOWED_TAGS =
+  /^(p|br|h[1-6]|ul|ol|li|a|strong|em|b|i|span|div|table|thead|tbody|tfoot|tr|td|th|hr|blockquote|pre|code)$/i;
+
+/**
+ * Sanitise HTML intended for email bodies.
+ * - Strips <script>, <style>, <iframe>, <object>, <embed>, <form> and SVG tags.
+ * - Strips all event handlers (on* attributes).
+ * - On <a> tags, only allows href with http/https scheme.
+ * - All other tags not in the allow-list are stripped (content preserved).
+ */
+export function sanitizeHtml(html: string): string {
+  if (!html) return "";
+
+  // 1. Remove dangerous block-level tags with their content
+  let result = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[^>]*>/gi, "")
+    .replace(/<form[\s\S]*?<\/form>/gi, "")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, "");
+
+  // 2. Strip event handler attributes (on* = "...") in any remaining tag
+  result = result.replace(/<([a-z][a-z0-9]*)[^>]*>/gi, (match, tagName: string) => {
+    if (!ALLOWED_TAGS.test(tagName)) {
+      // Tag not in allow-list — remove the opening tag entirely (keep inner text)
+      return "";
+    }
+
+    if (tagName.toLowerCase() === "a") {
+      // For <a> extract href only if it has an http/https scheme
+      const hrefMatch = match.match(/href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*))/i);
+      const rawHref = hrefMatch?.[1] ?? hrefMatch?.[2] ?? hrefMatch?.[3] ?? "";
+      const safeHref = /^https?:\/\//i.test(rawHref) ? rawHref : "#";
+
+      // Also allow target="_blank" and rel attributes — reconstruct cleanly
+      const targetMatch = match.match(/target\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*))/i);
+      const target = targetMatch ? ` target="_blank" rel="noopener noreferrer"` : "";
+      return `<a href="${safeHref}"${target}>`;
+    }
+
+    // For all other allowed tags: strip every attribute (simpler and safer for email)
+    return `<${tagName}>`;
+  });
+
+  // 3. Strip closing tags for disallowed elements
+  result = result.replace(/<\/([a-z][a-z0-9]*)\s*>/gi, (match, tagName: string) => {
+    if (!ALLOWED_TAGS.test(tagName)) return "";
+    return match;
+  });
+
+  return result;
+}
+
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const FROM_DEFAULT = process.env.EMAIL_FROM ?? "Phorma <noreply@phorma.it>";
@@ -283,11 +344,13 @@ export function buildCustomEmail(data: CustomEmailData) {
   }
 
   // Simple body substitution of placeholders
-  const resolvedBody = data.body
-    .replace(/\{\{firstName\}\}/g, data.firstName)
-    .replace(/\{\{lastName\}\}/g, data.lastName)
-    .replace(/\{\{eventTitle\}\}/g, data.eventTitle)
-    .replace(/\n/g, "<br />");
+  const resolvedBody = sanitizeHtml(
+    data.body
+      .replace(/\{\{firstName\}\}/g, data.firstName)
+      .replace(/\{\{lastName\}\}/g, data.lastName)
+      .replace(/\{\{eventTitle\}\}/g, data.eventTitle)
+      .replace(/\n/g, "<br />")
+  );
 
   const content = `
     <h2 style="margin:0 0 20px;font-size:20px;font-weight:700;color:#0f172a;">${data.eventTitle}</h2>

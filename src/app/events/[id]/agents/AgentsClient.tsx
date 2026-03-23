@@ -153,8 +153,8 @@ function ApprovedHistory({ eventId }: { eventId: string }) {
     try {
       const res = await fetch(`/api/events/${eventId}/ai/proposals?status=APPROVED`)
       if (!res.ok) return
-      const data = await res.json() as AgentProposalRow[]
-      setProposals(data)
+      const data = await res.json()
+      setProposals(Array.isArray(data) ? data : (data.proposals ?? []))
     } finally {
       setLoading(false)
     }
