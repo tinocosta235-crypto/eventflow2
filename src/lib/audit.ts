@@ -1,8 +1,7 @@
 import "server-only";
-import { appendFile } from "node:fs/promises";
-import { join } from "node:path";
+import { prisma } from "@/lib/db";
 
-type AuditAction =
+export type AuditAction =
   // Team & org
   | "TEAM_INVITE_CREATED"
   | "TEAM_INVITE_REVOKED"
@@ -16,34 +15,48 @@ type AuditAction =
   | "INTEGRATION_CONNECTED"
   | "INTEGRATION_REVOKED"
   | "INTEGRATION_REFRESHED"
-  // Security — Authentication
+  // Auth
   | "AUTH_LOGIN_SUCCESS"
   | "AUTH_LOGIN_FAILED"
   | "AUTH_LOGOUT"
-  // Security — Rate limiting
+  // Security
   | "API_RATE_LIMITED"
-  // Security — Input validation
   | "SECURITY_INVALID_INPUT"
-  // Data export
+  // Data
   | "DATA_EXPORT_REQUESTED";
 
-type AuditEntry = {
-  at: string;
+export type AuditEntry = {
   action: AuditAction;
-  orgId: string;
-  actorId: string;
+  orgId?: string;
+  actorId?: string;
   metadata?: Record<string, unknown>;
+  ipAddress?: string;
+  userAgent?: string;
 };
 
-const AUDIT_LOG_FILE = join(process.cwd(), "docs", "audit-log.ndjson");
-
-export async function logAudit(entry: Omit<AuditEntry, "at">) {
-  const payload: AuditEntry = { at: new Date().toISOString(), ...entry };
-  const line = `${JSON.stringify(payload)}\n`;
+export async function logAudit(entry: AuditEntry): Promise<void> {
   try {
-    await appendFile(AUDIT_LOG_FILE, line, "utf8");
-  } catch {
-    // Non-blocking fallback for environments where filesystem append is unavailable.
-    console.info("[audit]", payload);
+    await prisma.auditLog.create({
+      data: {
+        organizationId: entry.orgId ?? null,
+        actorId:        entry.actorId ?? "system",
+        action:         entry.action,
+        metadata:       entry.metadata ? JSON.stringify(entry.metadata) : null,
+        ipAddress:      entry.ipAddress ?? null,
+        userAgent:      entry.userAgent ?? null,
+      },
+    });
+  } catch (err) {
+    // Fallback: non bloccare mai il flusso principale per un errore di audit
+    console.error("[audit] DB write failed:", entry.action, err);
   }
+}
+
+// Helper per leggere gli audit log di un'org (usato dalla UI /settings/audit)
+export async function getAuditLogs(orgId: string, limit = 100) {
+  return prisma.auditLog.findMany({
+    where: { organizationId: orgId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
 }

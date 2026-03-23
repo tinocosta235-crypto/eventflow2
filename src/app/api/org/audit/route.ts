@@ -1,35 +1,16 @@
-import { NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { requireOrgAdmin } from "@/lib/auth-helpers";
+import { NextRequest, NextResponse } from "next/server";
+import { requireMember } from "@/lib/auth-helpers";
+import { getAuditLogs } from "@/lib/audit";
 
-const AUDIT_LOG_FILE = join(process.cwd(), "docs", "audit-log.ndjson");
+export async function GET(req: NextRequest) {
+  const auth = await requireMember();
+  if ("error" in auth) return auth.error;
 
-// GET /api/org/audit — latest org audit entries (baseline)
-export async function GET() {
-  const result = await requireOrgAdmin();
-  if ("error" in result) return result.error;
-  const { orgId } = result;
+  const limit = Math.min(
+    parseInt(new URL(req.url).searchParams.get("limit") ?? "100"),
+    500
+  );
 
-  try {
-    const raw = await readFile(AUDIT_LOG_FILE, "utf8");
-    const entries = raw
-      .trim()
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => {
-        try {
-          return JSON.parse(line) as { orgId: string; at: string };
-        } catch {
-          return null;
-        }
-      })
-      .filter((e): e is { orgId: string; at: string } & Record<string, unknown> => !!e)
-      .filter((e) => e.orgId === orgId)
-      .sort((a, b) => String(b.at).localeCompare(String(a.at)))
-      .slice(0, 25);
-    return NextResponse.json({ entries });
-  } catch {
-    return NextResponse.json({ entries: [] });
-  }
+  const logs = await getAuditLogs(auth.orgId, limit);
+  return NextResponse.json(logs);
 }

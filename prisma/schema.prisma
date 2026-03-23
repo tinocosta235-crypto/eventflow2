@@ -644,6 +644,23 @@ model AgentContextCache {
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
 
+// ─── AUDIT LOG ─────────────────────────────────────────────
+// Append-only. Mai cancellare righe — usare retention policy su Supabase.
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String?  // null per eventi di sistema (es. login fallito pre-auth)
+  actorId        String?  // userId o "system"
+  action         String   // AuditAction type
+  metadata       String?  // JSON
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+}
+
 model EmailTrackingEvent {
   id             String       @id @default(cuid())
   emailSendLogId String
